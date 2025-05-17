@@ -7,7 +7,7 @@
 
 #include "stb_imageINC.h"
 
-RGBColorF tex_value(const Texture * restrict t, CFLOAT u, CFLOAT v, vec3 p){
+RGBColorF tex_value(const Texture * __restrict__  t, CFLOAT u, CFLOAT v, vec3 p){
     if(t->texType == SOLID_COLOR){
         return tex_solidColorValue((SolidColor *)t->tex);
     }else if(t->texType == CHECKER){
@@ -20,11 +20,11 @@ RGBColorF tex_value(const Texture * restrict t, CFLOAT u, CFLOAT v, vec3 p){
     return (RGBColorF){.r = 0.0, .g = 0.0, .b = 0.0};
 }
 
-RGBColorF tex_solidColorValue(const SolidColor * restrict t){
+RGBColorF tex_solidColorValue(const SolidColor * __restrict__  t){
     return t->color;
 }
 
-RGBColorF tex_checkerValue(const Checker * restrict c,
+RGBColorF tex_checkerValue(const Checker * __restrict__  c,
         CFLOAT u, CFLOAT v, vec3 p){
 
 
@@ -37,7 +37,7 @@ RGBColorF tex_checkerValue(const Checker * restrict c,
 }
 
 
-void tex_loadImage(Image * restrict img, const char* filename){
+void tex_loadImage(Image * __restrict__  img, const char* filename){
     img->data = stbi_load(filename, &img->width, &img->height, &img->compsPerPixel, 0);
 
     if(!img->data){
@@ -48,7 +48,7 @@ void tex_loadImage(Image * restrict img, const char* filename){
     img->bytesPerScanLine = img->compsPerPixel * img->width;
 }
 
-RGBColorF tex_imageValue(const Image * restrict img, 
+RGBColorF tex_imageValue(const Image * __restrict__  img, 
         CFLOAT u, CFLOAT v){
     u = util_floatClamp(u, 0.0, 1.0);
     v = 1.0 - util_floatClamp(v, 0.0, 1.0);

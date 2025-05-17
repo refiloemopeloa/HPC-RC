@@ -44,10 +44,10 @@ static vec3 util_vec3Refract(vec3 uv, vec3 n, CFLOAT etai_over_etat){
     return r_out_perp;
 }
 
-static bool mat_metalScatter(const MetalMat * restrict nmetalMat, 
-                             const Ray * restrict rayIn, 
-                             const HitRecord * restrict rec, 
-                             RGBColorF * restrict attenuation, Ray * restrict out){
+static bool mat_metalScatter(const MetalMat * __restrict__  nmetalMat, 
+                             const Ray * __restrict__  rayIn, 
+                             const HitRecord * __restrict__  rec, 
+                             RGBColorF * __restrict__  attenuation, Ray * __restrict__  out){
     
     vec3 direction = rayIn->direction;
         
@@ -72,9 +72,9 @@ static bool mat_metalScatter(const MetalMat * restrict nmetalMat,
     return (dot_prod > 0);
 }
 
-static bool mat_lambScatter(const LambertianMat * restrict nlambMat, 
-                            const HitRecord * restrict rec, 
-                            RGBColorF * restrict attenuation, Ray * restrict out){
+static bool mat_lambScatter(const LambertianMat * __restrict__  nlambMat, 
+                            const HitRecord * __restrict__  rec, 
+                            RGBColorF * __restrict__  attenuation, Ray * __restrict__  out){
     
     vec3 scatter_direction = rec->normal;
     vec3 rndm = util_randomUnitVector();
@@ -92,7 +92,7 @@ static bool mat_lambScatter(const LambertianMat * restrict nlambMat,
     return true;
 }
 
-static bool mat_dielectricScatter(const DielectricMat * restrict ndielectricMat, const Ray * restrict rayIn, const HitRecord * restrict rec, RGBColorF * restrict attenuation, Ray * restrict out ){
+static bool mat_dielectricScatter(const DielectricMat * __restrict__  ndielectricMat, const Ray * __restrict__  rayIn, const HitRecord * __restrict__  rec, RGBColorF * __restrict__  attenuation, Ray * __restrict__  out ){
      
     *attenuation = (RGBColorF){
         .r = 1.0,
@@ -127,8 +127,8 @@ static bool mat_dielectricScatter(const DielectricMat * restrict ndielectricMat,
 }
 
 
-bool mat_scatter (const Ray * restrict rayIn, const HitRecord * restrict rec, RGBColorF * restrict attenuation, Ray * restrict out){
-    const Material * restrict m = rec->hitObjMat;
+bool mat_scatter (const Ray * __restrict__  rayIn, const HitRecord * __restrict__  rec, RGBColorF * __restrict__  attenuation, Ray * __restrict__  out){
+    const Material * __restrict__  m = rec->hitObjMat;
 
     if(m->matType == METAL){
         return mat_metalScatter((MetalMat * ) m->mat, rayIn, rec, attenuation, out);

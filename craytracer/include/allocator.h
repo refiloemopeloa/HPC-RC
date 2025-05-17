@@ -13,7 +13,7 @@ typedef struct debugStruct {
 
 typedef struct poolAllocNode PoolAllocNode;
 typedef struct poolAllocNode{
-    PoolAllocNode * restrict next; 
+    PoolAllocNode * __restrict__ next; 
 } PoolAllocNode;
 
 typedef struct poolalloc PoolAlloc;
@@ -31,30 +31,30 @@ typedef struct poolalloc {
     DebugStruct dbgS;
 #endif 
     // points to the first node in the free list
-    PoolAllocNode * restrict head;
+    PoolAllocNode * __restrict__ head;
 
     // the pointer to the buffer held by this allocator
-    uint8_t * restrict buffptr;
+    uint8_t * __restrict__ buffptr;
 } PoolAlloc;
 
 
 
 // function to create a pool allocator
-extern PoolAlloc* alloc_createPoolAllocator(size_t size, size_t chunkAlignment, size_t chunkSize);
+__device__ __host__ PoolAlloc* alloc_createPoolAllocator(size_t size, size_t chunkAlignment, size_t chunkSize);
 
 // function to allocate chunks
-extern void * alloc_poolAllocAllocate(PoolAlloc * restrict pa);
+__device__ __host__ void * alloc_poolAllocAllocate(PoolAlloc * __restrict__ pa);
 
 // free all the allocated chunk in allocator
 // doesn't deallocate the memory allocated by the createPoolAllocator function
-extern void alloc_poolAllocFreeAll(PoolAlloc * restrict pa); 
+__device__ __host__ void alloc_poolAllocFreeAll(PoolAlloc * __restrict__ pa); 
 
 // free the chunk given by ptr 
 // ptr should be allocate by using poolAllocAllocate function
-extern void alloc_poolAllocFree(PoolAlloc * restrict pa, void * restrict ptr);
+__device__ __host__ void alloc_poolAllocFree(PoolAlloc * __restrict__ pa, void * __restrict__ ptr);
 
 // free pool allocator
-extern void alloc_freePoolAllocator(PoolAlloc * restrict pAlloc);
+__device__ __host__ void alloc_freePoolAllocator(PoolAlloc * __restrict__ pAlloc);
 
 
 /*
@@ -73,18 +73,18 @@ typedef struct linearAllocatorFC {
 
 
 // create a linearAllocator
-extern LinearAllocFC * alloc_createLinearAllocFC(size_t numChunks, 
+__device__ __host__ LinearAllocFC * alloc_createLinearAllocFC(size_t numChunks, 
                                                  size_t chunkSize, 
                                                  size_t chunkAlignment);
 
 // allocate memory
-extern void * alloc_linearAllocFCAllocate(LinearAllocFC * restrict lafc);
+__device__ void * alloc_linearAllocFCAllocate(LinearAllocFC * __restrict__ lafc);
 
 // free all
-extern void alloc_linearAllocFCFreeAll(LinearAllocFC * restrict lafc);
+__device__ __host__ void alloc_linearAllocFCFreeAll(LinearAllocFC * __restrict__ lafc);
 
 // destroy the linear allocator
-extern void alloc_freeLinearAllocFC(LinearAllocFC * restrict lafc);
+__device__ __host__ void alloc_freeLinearAllocFC(LinearAllocFC * __restrict__ lafc);
 
 /* 
  *
@@ -117,19 +117,19 @@ typedef struct stackAlloc {
 } StackAlloc;
 
 // create stack allocator
-extern StackAlloc* alloc_createStackAllocator(size_t size);
+__device__ __host__ StackAlloc* alloc_createStackAllocator(size_t size);
 
 // allocate memory 
-extern void * alloc_stackAllocAllocate(StackAlloc * restrict sa, size_t allocSize, size_t alignment);
+__device__ __host__ void * alloc_stackAllocAllocate(StackAlloc * __restrict__ sa, size_t allocSize, size_t alignment);
 
 // free the most recent allocation
-extern bool alloc_stackAllocFree(StackAlloc * restrict sa, void * ptr);
+__device__ __host__ bool alloc_stackAllocFree(StackAlloc * __restrict__ sa, void * ptr);
 
 // free all the allocations
-extern void alloc_stackAllocFreeAll(StackAlloc * restrict sa);
+__device__ __host__ void alloc_stackAllocFreeAll(StackAlloc * __restrict__ sa);
 
 // destroy the stack allocator
-extern void alloc_freeStackAllocator(StackAlloc * sa);
+__device__ __host__ void alloc_freeStackAllocator(StackAlloc * sa);
 
 /* 
  *
@@ -144,10 +144,10 @@ typedef struct ptrStack {
     bool valid;
 } PtrStack;
 
-extern void alloc_createPtrStack(PtrStack * restrict ps, size_t maxPointers);
-extern bool alloc_ptrStackPush(PtrStack * restrict ps, void * val);
-extern bool alloc_ptrStackPop(PtrStack * restrict ps, void ** restrict out);
-extern void alloc_freePtrStack(PtrStack * restrict ptr);
+__device__ __host__ void alloc_createPtrStack(PtrStack * __restrict__ ps, size_t maxPointers);
+__device__ __host__ bool alloc_ptrStackPush(PtrStack * __restrict__ ps, void * val);
+__device__ __host__ bool alloc_ptrStackPop(PtrStack * __restrict__ ps, void ** __restrict__ out);
+__device__ __host__ void alloc_freePtrStack(PtrStack * __restrict__ ptr);
 
 typedef struct dynamicStackAlloc {
     PtrStack ps;
@@ -160,25 +160,25 @@ typedef struct dynamicStackAlloc {
     bool valid;
 } DynamicStackAlloc;
 
-extern DynamicStackAlloc * alloc_createDynamicStackAllocD(
+__device__ __host__ DynamicStackAlloc * alloc_createDynamicStackAllocD(
         size_t maxAllocatorSize,
         size_t maxAllocators);
 
 
-extern void alloc_createDynamicStackAlloc(
-        DynamicStackAlloc * restrict dsa, 
+__device__ __host__ void alloc_createDynamicStackAlloc(
+        DynamicStackAlloc * __restrict__ dsa, 
         size_t maxAllocatorSize,
         size_t maxAllocators);
 
-extern void* alloc_dynamicStackAllocAllocate(
-        DynamicStackAlloc * restrict dsa,
+__device__ __host__ void* alloc_dynamicStackAllocAllocate(
+        DynamicStackAlloc * __restrict__ dsa,
         size_t allocSize,
         size_t alignment);
 
-extern bool alloc_dynamicStackAllocFree(DynamicStackAlloc * restrict dsa, void * ptr);
-extern bool alloc_dynamicStackAllocFreeAll(DynamicStackAlloc * restrict dsa);
-extern void alloc_freeDynamicStackAlloc(DynamicStackAlloc * restrict dsa);
-extern void alloc_freeDynamicStackAllocD(DynamicStackAlloc * restrict dsa);
+__device__ __host__ bool alloc_dynamicStackAllocFree(DynamicStackAlloc * __restrict__ dsa, void * ptr);
+__device__ __host__ bool alloc_dynamicStackAllocFreeAll(DynamicStackAlloc * __restrict__ dsa);
+__device__ __host__ void alloc_freeDynamicStackAlloc(DynamicStackAlloc * __restrict__ dsa);
+__device__ __host__ void alloc_freeDynamicStackAllocD(DynamicStackAlloc * __restrict__ dsa);
 
 #endif
 

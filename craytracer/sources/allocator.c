@@ -70,7 +70,7 @@ PoolAlloc* alloc_createPoolAllocator(size_t size, size_t chunkAlignment, size_t 
     return pa;
 }
 
-void * alloc_poolAllocAllocate(PoolAlloc * restrict pa){
+void * alloc_poolAllocAllocate(PoolAlloc * __restrict__  pa){
     PoolAllocNode * node = pa->head;
     if(node == NULL){
 
@@ -90,7 +90,7 @@ void * alloc_poolAllocAllocate(PoolAlloc * restrict pa){
     return memset(node, 0, pa->chunkSize);
 }
 
-void alloc_poolAllocFree(PoolAlloc * restrict pa, void * restrict ptr){
+void alloc_poolAllocFree(PoolAlloc * __restrict__  pa, void * __restrict__  ptr){
     if(ptr == NULL){
         return;
     }
@@ -112,7 +112,7 @@ void alloc_poolAllocFree(PoolAlloc * restrict pa, void * restrict ptr){
 #endif
 }
 
-void alloc_poolAllocFreeAll(PoolAlloc * restrict pa){
+void alloc_poolAllocFreeAll(PoolAlloc * __restrict__  pa){
     size_t chunkCount = pa->totalSize / pa->chunkSize;
 
     PoolAllocNode * node = NULL;
@@ -127,7 +127,7 @@ void alloc_poolAllocFreeAll(PoolAlloc * restrict pa){
 #endif
 } 
 
-extern void alloc_freePoolAllocator(PoolAlloc * restrict pAlloc){
+__device__ __host__ void alloc_freePoolAllocator(PoolAlloc * __restrict__  pAlloc){
     free(pAlloc->buffptr);
     free(pAlloc);
 }
@@ -158,7 +158,7 @@ LinearAllocFC * alloc_createLinearAllocFC(size_t numChunks,
 }
 
 
-void * alloc_linearAllocFCAllocate(LinearAllocFC * lafc){
+__device__ void * alloc_linearAllocFCAllocate(LinearAllocFC * lafc){
     if((lafc->curOffset + lafc->chunkSize) > lafc->totalSize){
         assert(0 && "Linear allocator is full");
         return NULL;
@@ -170,11 +170,11 @@ void * alloc_linearAllocFCAllocate(LinearAllocFC * lafc){
     return memset(outAddr, 0, lafc->chunkSize);
 }
 
-void alloc_linearAllocFCFreeAll(LinearAllocFC * restrict lafc){
+void alloc_linearAllocFCFreeAll(LinearAllocFC * __restrict__  lafc){
     lafc->curOffset = 0;
 }
 
-void alloc_freeLinearAllocFC(LinearAllocFC * restrict lafc){
+void alloc_freeLinearAllocFC(LinearAllocFC * __restrict__  lafc){
     free(lafc->bufptr);
     free(lafc);
 }
@@ -235,7 +235,7 @@ StackAlloc* alloc_createStackAllocator(size_t size){
     return outSA;
 }
 
-void * alloc_stackAllocAllocate(StackAlloc * restrict sa, size_t allocSize, size_t alignment){
+void * alloc_stackAllocAllocate(StackAlloc * __restrict__  sa, size_t allocSize, size_t alignment){
     if(!isPowerOfTwo(alignment)){
         return NULL;
     }
@@ -269,7 +269,7 @@ void * alloc_stackAllocAllocate(StackAlloc * restrict sa, size_t allocSize, size
     return memset((void *)nextAddr, 0, allocSize);
 }
 
-bool alloc_stackAllocFree(StackAlloc * restrict sa, void * ptr){
+bool alloc_stackAllocFree(StackAlloc * __restrict__  sa, void * ptr){
     uintptr_t start = (uintptr_t)sa->buffptr;
     uintptr_t end = start + sa->totalSize;
     uintptr_t curAddr = (uintptr_t)ptr; 
@@ -295,7 +295,7 @@ bool alloc_stackAllocFree(StackAlloc * restrict sa, void * ptr){
     return true;
 }
 
-void alloc_stackAllocFreeAll(StackAlloc * restrict sa){
+void alloc_stackAllocFreeAll(StackAlloc * __restrict__  sa){
     sa->offset = sa->prevOffset = 0;
     sa->isFull = false;
 }
@@ -310,7 +310,7 @@ void alloc_freeStackAllocator(StackAlloc * sa){
  * Dynamic stack allocator
  *
  * */
-void alloc_createPtrStack(PtrStack * restrict ps, size_t maxPointers){
+void alloc_createPtrStack(PtrStack * __restrict__  ps, size_t maxPointers){
     ps->bufptr = CUSTOM_MALLOC(maxPointers * sizeof(void *));
     
     if(ps->bufptr == NULL){
@@ -323,7 +323,7 @@ void alloc_createPtrStack(PtrStack * restrict ps, size_t maxPointers){
     ps->curOffset = 0;
 }
 
-bool alloc_ptrStackPush(PtrStack * restrict ps, void * val){
+bool alloc_ptrStackPush(PtrStack * __restrict__  ps, void * val){
     if(!ps->valid) { 
         return false;
     }
@@ -338,7 +338,7 @@ bool alloc_ptrStackPush(PtrStack * restrict ps, void * val){
     return true;
 }
 
-bool alloc_ptrStackPop(PtrStack * restrict ps, void ** restrict out){
+bool alloc_ptrStackPop(PtrStack * __restrict__  ps, void ** __restrict__  out){
     if(!ps->valid){
         return false;
     }
@@ -353,7 +353,7 @@ bool alloc_ptrStackPop(PtrStack * restrict ps, void ** restrict out){
     return true;
 }
 
-void alloc_freePtrStack(PtrStack * restrict ptr){
+void alloc_freePtrStack(PtrStack * __restrict__  ptr){
     free(ptr->bufptr);
 }
 
@@ -361,7 +361,7 @@ void alloc_freePtrStack(PtrStack * restrict ptr){
 #define DSA_IS_ON_TOP(dsa) ((dsa)->numAllocatedStacks == (dsa)->ps.curOffset)
 
 void alloc_createDynamicStackAlloc(
-        DynamicStackAlloc * restrict dsa, 
+        DynamicStackAlloc * __restrict__  dsa, 
         size_t maxAllocatorSize,
         size_t maxAllocators){
 
@@ -390,7 +390,7 @@ DynamicStackAlloc * alloc_createDynamicStackAllocD(
     return dsa;
 }
 
-static bool addStackAlloctor(DynamicStackAlloc * restrict dsa){
+static bool addStackAlloctor(DynamicStackAlloc * __restrict__  dsa){
     if(dsa->isMax){
         return false;
     }
@@ -411,7 +411,7 @@ static bool addStackAlloctor(DynamicStackAlloc * restrict dsa){
 }
 
 void* alloc_dynamicStackAllocAllocate(
-        DynamicStackAlloc * restrict dsa,
+        DynamicStackAlloc * __restrict__  dsa,
         size_t allocSize,
         size_t alignment){
    
@@ -452,7 +452,7 @@ void* alloc_dynamicStackAllocAllocate(
     }
 }
 
-bool alloc_dynamicStackAllocFree(DynamicStackAlloc * restrict dsa, void * ptr){
+bool alloc_dynamicStackAllocFree(DynamicStackAlloc * __restrict__  dsa, void * ptr){
     if(!dsa->valid || !dsa->ps.valid || !dsa->ps.curOffset){
         return false;
     } 
@@ -473,7 +473,7 @@ bool alloc_dynamicStackAllocFree(DynamicStackAlloc * restrict dsa, void * ptr){
 }
 
 
-bool alloc_dynamicStackAllocFreeAll(DynamicStackAlloc * restrict dsa){
+bool alloc_dynamicStackAllocFreeAll(DynamicStackAlloc * __restrict__  dsa){
     if(!dsa->valid || !dsa->ps.valid || !dsa->ps.curOffset){
         return false;
     } 
@@ -488,7 +488,7 @@ bool alloc_dynamicStackAllocFreeAll(DynamicStackAlloc * restrict dsa){
     return true;
  }
 
-void alloc_freeDynamicStackAlloc(DynamicStackAlloc * restrict dsa){
+void alloc_freeDynamicStackAlloc(DynamicStackAlloc * __restrict__  dsa){
     void * v = NULL;
     while(dsa->ps.curOffset){
         alloc_ptrStackPop(&dsa->ps, &v); 
@@ -498,7 +498,7 @@ void alloc_freeDynamicStackAlloc(DynamicStackAlloc * restrict dsa){
     free(dsa->ps.bufptr);
 }
 
-void alloc_freeDynamicStackAllocD(DynamicStackAlloc * restrict dsa){
+void alloc_freeDynamicStackAllocD(DynamicStackAlloc * __restrict__  dsa){
     alloc_freeDynamicStackAlloc(dsa);
     free(dsa);
 }

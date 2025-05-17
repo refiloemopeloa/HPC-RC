@@ -26,16 +26,17 @@ typedef struct camera {
     CFLOAT verticalFOV;
 } Camera;
 
-extern void cam_setCamera(Camera * restrict c, vec3 origin, CFLOAT aspectRatio, 
+__device__ __host__ void cam_setCamera(Camera * __restrict__  c, vec3 origin, CFLOAT aspectRatio, 
                           CFLOAT focalLength, CFLOAT vfov);
 
-extern void cam_setLookAtCamera(Camera * restrict c, vec3 lookFrom, 
+__device__ __host__ void cam_setLookAtCamera(Camera * __restrict__  c, vec3 lookFrom, 
                                 vec3 lookAt, vec3 up, CFLOAT vfov, 
                                 CFLOAT aspectRatio, CFLOAT aperture,
                                 CFLOAT focusDist);
 
-extern Ray cam_getRay(const Camera * restrict cam, CFLOAT u, CFLOAT v);
+// __device__ __host__ Ray cam_getRay(const Camera * __restrict__  cam, CFLOAT u, CFLOAT v);
 
+__device__ Ray cam_getRay(const Camera* cam, CFLOAT u, CFLOAT v);
 
 #endif
 

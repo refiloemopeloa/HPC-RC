@@ -34,19 +34,19 @@ typedef struct {
 } HitRecord;
 
 // construct a hit record object and return it
-extern HitRecord hr_setRecord(
+__device__ __host__ HitRecord hr_setRecord(
             CFLOAT distanceFromOrigin, 
             vec3 point, 
             vec3 normal, 
             vec3 direction, 
-            const Material * restrict hitObjMat
+            const Material * __restrict__  hitObjMat
         );
-extern void hr_setRecordi(
+__device__ __host__ void hr_setRecordi(
             CFLOAT distanceFromOrigin, 
             vec3 point, 
             vec3 normal, 
-            vec3 direction, HitRecord* restrict outRecord,
-            const Material * restrict hitObjMat
+            vec3 direction, HitRecord* __restrict__  outRecord,
+            const Material * __restrict__  hitObjMat
         );
 
 #endif

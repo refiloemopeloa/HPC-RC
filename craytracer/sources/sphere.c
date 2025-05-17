@@ -4,7 +4,7 @@
 #include "util.h"
 
 static bool hit(
-        const Object * restrict obj, 
+        const Object * __restrict__  obj, 
         Ray r, 
         CFLOAT t_min, 
         CFLOAT t_max, HitRecord * outRecord )
@@ -20,7 +20,7 @@ static bool hit(
 }
 
 
-bool obj_sphereHit(const Sphere* restrict s, Ray r, CFLOAT t_min, CFLOAT t_max, HitRecord * outRecord){
+bool obj_sphereHit(const Sphere* __restrict__  s, Ray r, CFLOAT t_min, CFLOAT t_max, HitRecord * outRecord){
     vec3 oc = r.origin;
     vec3 direction = r.direction;
 
@@ -106,9 +106,9 @@ void obj_sphereTexCoords(vec3 pointOnSphere,
 
 }
 
-Object * obj_createObject(void * restrict object, 
+Object * obj_createObject(void * __restrict__  object, 
                           ObjectType type, 
-                          DynamicStackAlloc * restrict dsa)
+                          DynamicStackAlloc * __restrict__  dsa)
 {
     Object * o = alloc_dynamicStackAllocAllocate(dsa, sizeof(Object), alignof(Object));
     
@@ -118,8 +118,8 @@ Object * obj_createObject(void * restrict object,
 } 
 
 bool obj_objectLLAdd(
-        ObjectLL * restrict objll, 
-        void * restrict obj, 
+        ObjectLL * __restrict__  objll, 
+        void * __restrict__  obj, 
         ObjectType objType
 )
 {
@@ -145,7 +145,7 @@ bool obj_objectLLAdd(
     return true;
 }
 
-bool obj_objectLLRemove(ObjectLL * restrict objll, size_t index){
+bool obj_objectLLRemove(ObjectLL * __restrict__  objll, size_t index){
     if(!objll || !objll->valid){
         return false;
     }
@@ -173,7 +173,7 @@ bool obj_objectLLRemove(ObjectLL * restrict objll, size_t index){
 }
 
 /*HitRecord**/
-bool obj_objLLHit (const ObjectLL* restrict objll,
+__device__ __host__ bool obj_objLLHit (const ObjectLL* __restrict__  objll,
                    Ray r, 
                    CFLOAT t_min,
                    CFLOAT t_max,
@@ -214,7 +214,7 @@ bool obj_objLLHit (const ObjectLL* restrict objll,
 }
 
 
-bool obj_objLLAddSphere(ObjectLL * restrict objll,
+bool obj_objLLAddSphere(ObjectLL * __restrict__  objll,
         Sphere sphere)
 {
     Sphere * s = alloc_dynamicStackAllocAllocate(objll->dsa, sizeof(Sphere), alignof(Sphere));
@@ -240,7 +240,7 @@ ObjectLL * obj_createObjectLL(
     return objLL;
 }
 
-Object * obj_objectLLGetAT(const ObjectLL * restrict objll, size_t index){
+Object * obj_objectLLGetAT(const ObjectLL * __restrict__  objll, size_t index){
     if(index >= objll->numObjects){
         return NULL; 
     }
@@ -256,7 +256,7 @@ Object * obj_objectLLGetAT(const ObjectLL * restrict objll, size_t index){
 }
 
 
-void obj_objectLLSetAT(const ObjectLL * restrict objll, size_t index, Object object){
+void obj_objectLLSetAT(const ObjectLL * __restrict__  objll, size_t index, Object object){
     if(index >= objll->numObjects){
         return; 
     }
@@ -271,7 +271,7 @@ void obj_objectLLSetAT(const ObjectLL * restrict objll, size_t index, Object obj
     cur->obj = object; 
 }
 
-void obj_objectLLSort(const ObjectLL * restrict objll, 
+void obj_objectLLSort(const ObjectLL * __restrict__  objll, 
                       size_t start, 
                       size_t end, ObjectComparator comp){
 
@@ -296,7 +296,7 @@ void obj_objectLLSort(const ObjectLL * restrict objll,
     }
 }
 
-bool obj_AABBHit(const AABB* restrict s, Ray r, CFLOAT t_min, CFLOAT t_max){
+bool obj_AABBHit(const AABB* __restrict__  s, Ray r, CFLOAT t_min, CFLOAT t_max){
     for(int i = 0; i < 3; i++){
         CFLOAT t0 = CF_MIN(
             (s->minimum.v[i] - r.origin.v[i])/(r.direction.v[i]),
@@ -318,7 +318,7 @@ bool obj_AABBHit(const AABB* restrict s, Ray r, CFLOAT t_min, CFLOAT t_max){
     return true;
 }
 
-bool obj_sphereCalcBoundingBox(const Sphere* restrict s, AABB * outbox){
+bool obj_sphereCalcBoundingBox(const Sphere* __restrict__  s, AABB * outbox){
     outbox->minimum.x = s->center.x - s->radius;
     outbox->minimum.y = s->center.y - s->radius;
     outbox->minimum.z = s->center.z - s->radius;
@@ -330,7 +330,7 @@ bool obj_sphereCalcBoundingBox(const Sphere* restrict s, AABB * outbox){
     return true;
 }
 
-static AABB surrounding_box(const AABB* restrict box0, const AABB* restrict box1){
+static AABB surrounding_box(const AABB* __restrict__  box0, const AABB* __restrict__  box1){
     vec3 small;
     vec3 big;
     AABB temp_AABB;
@@ -350,7 +350,7 @@ static AABB surrounding_box(const AABB* restrict box0, const AABB* restrict box1
 }
 
 
-static bool boundingBox(const Object * restrict obj, AABB* outbox){
+static bool boundingBox(const Object * __restrict__  obj, AABB* outbox){
     if(obj->objType == SPHERE){
         return obj_sphereCalcBoundingBox(((const Sphere *)obj->object), outbox);
     }else if(obj->objType == OBJLL){
@@ -362,7 +362,7 @@ static bool boundingBox(const Object * restrict obj, AABB* outbox){
     return false;
 }
 
-bool obj_objectLLCalcBoundingBox(const ObjectLL* restrict objll, AABB * outbox){
+bool obj_objectLLCalcBoundingBox(const ObjectLL* __restrict__  objll, AABB * outbox){
     if(objll->numObjects == 0) return false;
     
     AABB tempBox;
@@ -389,12 +389,12 @@ bool obj_objectLLCalcBoundingBox(const ObjectLL* restrict objll, AABB * outbox){
 }
 
 
-bool obj_bvhCalcBoundingBox(const BVH * restrict bvh, AABB * restrict outbox){
+bool obj_bvhCalcBoundingBox(const BVH * __restrict__  bvh, AABB * __restrict__  outbox){
     *outbox = bvh->box;
     return true;
 }
 
-bool obj_bvhHit(const BVH* restrict bvh, Ray r, CFLOAT t_min, CFLOAT t_max, HitRecord * out){
+bool obj_bvhHit(const BVH* __restrict__  bvh, Ray r, CFLOAT t_min, CFLOAT t_max, HitRecord * out){
     if(!obj_AABBHit(&bvh->box, r, t_min, t_max)){
         return false;
     }
@@ -433,8 +433,8 @@ static bool boxZCompare(const Object * obj1, const Object * obj2){
     return boxCompare(obj1, obj2, 2);
 }
 
-void obj_fillBVH(BVH * restrict bvh, 
-                   const ObjectLL * restrict objects,
+void obj_fillBVH(BVH * __restrict__  bvh, 
+                   const ObjectLL * __restrict__  objects,
                    size_t start, size_t end){
     
     uint32_t axis = util_randomRange(0, 2); 

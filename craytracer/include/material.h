@@ -36,12 +36,15 @@ typedef struct material {
 } Material;
 
 
-bool mat_scatter (
-        const Ray * restrict rayIn, 
-        const HitRecord * restrict rec, 
-        RGBColorF * restrict attenuation, 
-        Ray * restrict out
-    );
+// bool mat_scatter (
+//         const Ray * __restrict__  rayIn, 
+//         const HitRecord * __restrict__  rec, 
+//         RGBColorF * __restrict__  attenuation, 
+//         Ray * __restrict__  out
+//     );
+
+    __device__ bool mat_scatter(const Ray* rayIn, const HitRecord* rec, 
+                           RGBColorF* attenuation, Ray* scattered);
 
 
 // IP = in place

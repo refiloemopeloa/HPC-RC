@@ -8,7 +8,7 @@ static CFLOAT degreesToRadians(CFLOAT deg){
     return (M_PI / 180.0) * deg; 
 }
 
-void cam_setCamera(Camera * restrict c, vec3 origin, CFLOAT aspectRatio, 
+void cam_setCamera(Camera * __restrict__  c, vec3 origin, CFLOAT aspectRatio, 
                           CFLOAT focalLength, CFLOAT vfov){      
     
     c->origin = origin;
@@ -28,7 +28,7 @@ void cam_setCamera(Camera * restrict c, vec3 origin, CFLOAT aspectRatio,
     c->lowerLeftCorner.z = c->origin.z - c->horizontal.z/2 - c->vertical.z/2 - c->focalLength; 
 }
 
-void cam_setLookAtCamera(Camera * restrict c, vec3 lookFrom, 
+void cam_setLookAtCamera(Camera * __restrict__  c, vec3 lookFrom, 
                          vec3 lookAt, vec3 up, CFLOAT vfov, 
                          CFLOAT aspectRatio, CFLOAT aperture,
                          CFLOAT focusDist){
@@ -76,7 +76,7 @@ void cam_setLookAtCamera(Camera * restrict c, vec3 lookFrom,
     c->lensRadius = aperture / 2.0;
 }
 
-Ray cam_getRay(const Camera * restrict cam, CFLOAT u, CFLOAT v){
+Ray cam_getRay(const Camera * __restrict__  cam, CFLOAT u, CFLOAT v){
 
     // randOnDist = lensRadius * util_randomUnitDisk()
     vec3 randOnDist = util_randomUnitDisk();

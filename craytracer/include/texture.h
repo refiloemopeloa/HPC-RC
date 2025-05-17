@@ -15,7 +15,7 @@ typedef enum {
 } TexType;
 
 typedef struct {
-    void * restrict tex;
+    void * __restrict__  tex;
     TexType texType;
 } Texture;
 
@@ -38,15 +38,15 @@ typedef struct {
     int32_t compsPerPixel;
 } Image;
 
-extern RGBColorF tex_value(const Texture * restrict t, 
+__device__ __host__ RGBColorF tex_value(const Texture * __restrict__  t, 
         CFLOAT u, CFLOAT v, vec3 p);
 
-extern RGBColorF tex_solidColorValue(const SolidColor * restrict t);
-extern RGBColorF tex_checkerValue(const Checker * restrict c,
+__device__ __host__ RGBColorF tex_solidColorValue(const SolidColor * __restrict__  t);
+__device__ __host__ RGBColorF tex_checkerValue(const Checker * __restrict__  c,
                 CFLOAT u, CFLOAT v, vec3 p);
 
-extern void tex_loadImage(Image * restrict img, const char* filename);
-extern RGBColorF tex_imageValue(const Image * restrict img, 
+__device__ __host__ void tex_loadImage(Image * __restrict__  img, const char* filename);
+__device__ __host__ RGBColorF tex_imageValue(const Image * __restrict__  img, 
                 CFLOAT u, CFLOAT v);
 
 #endif
