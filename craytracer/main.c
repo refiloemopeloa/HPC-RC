@@ -467,7 +467,7 @@ int main(int argc, char *argv[]) {
     uint32_t totalSteps = (WIDTH * HEIGHT) / stepSize + 1;
     size_t stepsCompleted = 0;
 
-#pragma omp parallel num_threads(1)
+#pragma omp parallel num_threads(16)
     {
         size_t localSteps = 0;
 
