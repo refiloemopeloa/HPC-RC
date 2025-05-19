@@ -16,6 +16,8 @@
 2. **Preprocess Data** (train/test split, normalize, apply transformations for non-IID).
 3. **Partition Data** across workers (each gets a unique subset with transformations).
 
+![alt text](<deepseek_mermaid_20250519_f4fc22 (1).png>)
+
 ### **B. MPI Architecture**
 1. **Define MPI Roles**:
    - **Rank 0**: Server (aggregates models).
