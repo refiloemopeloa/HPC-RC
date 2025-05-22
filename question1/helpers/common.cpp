@@ -7,40 +7,65 @@
 #include <limits>
 #include <stdexcept>
 #include <iostream>
+#include <sstream>
+#include <vector>
 
-// ---- Communication Functions ----
+using namespace std;
+
 void sendCentroids(const std::vector<Centroid>& centroids, int dest) {
-    // Flatten centroids into 1D float array
-    std::vector<float> flat_data;
-    for (const auto& c : centroids) {
-        flat_data.insert(flat_data.end(), c.coordinates.begin(), c.coordinates.end());
+    // First send number of centroids
+    int num_centroids = centroids.size();
+    MPI_Send(&num_centroids, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
+
+    // Then send dimension (handle empty centroids case)
+    int dim = centroids.empty() ? 0 : centroids[0].values.size();
+    MPI_Send(&dim, 1, MPI_INT, dest, 1, MPI_COMM_WORLD);
+
+    // Send flattened data only if we have centroids
+    if (!centroids.empty() && dim > 0) {
+        std::vector<float> flat_data;
+        flat_data.reserve(num_centroids * dim);
+        for (const auto& c : centroids) {
+            flat_data.insert(flat_data.end(), c.values.begin(), c.values.end());
+        }
+        MPI_Send(flat_data.data(), flat_data.size(), MPI_FLOAT, dest, 2, MPI_COMM_WORLD);
     }
-
-    // Send metadata (count) first
-    int count = flat_data.size();
-    MPI_Send(&count, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
-
-    // Send actual data
-    MPI_Send(flat_data.data(), count, MPI_FLOAT, dest, 1, MPI_COMM_WORLD);
 }
 
-std::vector<Centroid> receiveCentroids(int src) {
-    // Receive count first
-    int count;
-    MPI_Recv(&count, 1, MPI_INT, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    // Prepare buffer
-    std::vector<float> flat_data(count);
-    MPI_Recv(flat_data.data(), count, MPI_FLOAT, src, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    // Reconstruct centroids (assuming 784D MNIST)
-    const int dim = 784;
-    std::vector<Centroid> centroids;
-    for (int i = 0; i < count; i += dim) {
-        Centroid c;
-        c.coordinates.assign(flat_data.begin() + i, flat_data.begin() + i + dim);
-        centroids.push_back(c);
+vector<Centroid> receiveCentroids(int from_rank) {
+    MPI_Status status;
+    
+    // Receive number of centroids
+    int num_centroids;
+    MPI_Recv(&num_centroids, 1, MPI_INT, from_rank, 0, MPI_COMM_WORLD, &status);
+    
+    // Check for termination signal
+    if (num_centroids == -1) {
+        return {}; // Return empty vector as termination signal
     }
+    
+    // Receive dimension
+    int dim;
+    MPI_Recv(&dim, 1, MPI_INT, from_rank, 1, MPI_COMM_WORLD, &status);
+    
+    // Handle empty centroids case
+    if (num_centroids == 0 || dim == 0) {
+        return {};
+    }
+    
+    // Receive flattened data
+    std::vector<float> flat_data(num_centroids * dim);
+    MPI_Recv(flat_data.data(), num_centroids * dim, MPI_FLOAT, from_rank, 2, MPI_COMM_WORLD, &status);
+    
+    // Reconstruct centroids
+    std::vector<Centroid> centroids(num_centroids);
+    for (int i = 0; i < num_centroids; i++) {
+        centroids[i].values.assign(
+            flat_data.begin() + i * dim,
+            flat_data.begin() + (i + 1) * dim
+        );
+    }
+    
     return centroids;
 }
 
@@ -50,43 +75,174 @@ void initializeRandomCentroids(std::vector<Centroid>& centroids, int dim) {
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dist(0.0, 1.0);
     
+    std::cout << "Initializing " << centroids.size() << " centroids with dimension " << dim << std::endl;
+    
     for (auto& c : centroids) {
-        c.coordinates.resize(dim);
-        for (float& val : c.coordinates) {
+        c.values.resize(dim);
+        for (float& val : c.values) {
             val = dist(gen);
+            // Ensure initialization is reasonable for MNIST (0-1 range)
+            if (!std::isfinite(val)) {
+                val = 0.5f; // fallback value
+            }
         }
+    }
+    
+    // Print first few values for debugging
+    if (!centroids.empty() && !centroids[0].values.empty()) {
+        std::cout << "First centroid sample values: ";
+        for (int i = 0; i < std::min(5, (int)centroids[0].values.size()); i++) {
+            std::cout << centroids[0].values[i] << " ";
+        }
+        std::cout << std::endl;
     }
 }
 
 std::vector<Centroid> averageCentroids(const std::vector<std::vector<Centroid>>& all_centroids) {
-    if (all_centroids.empty()) return {};
+    if (all_centroids.empty() || all_centroids[0].empty()) return {};
     
     std::vector<Centroid> avg(all_centroids[0].size());
     int num_workers = all_centroids.size();
-    int dim = all_centroids[0][0].coordinates.size();
+    int dim = all_centroids[0][0].values.size();
 
-    for (int c = 0; c < avg.size(); c++) {
-        avg[c].coordinates.resize(dim, 0.0f);
+    // Initialize averaged centroids
+    for (size_t c = 0; c < avg.size(); c++) {
+        avg[c].values.resize(dim, 0.0f);
+    }
+
+    // Sum all worker centroids
+    for (size_t c = 0; c < avg.size(); c++) {
         for (int w = 0; w < num_workers; w++) {
+            if (all_centroids[w].size() != avg.size()) {
+                std::cerr << "Warning: Worker " << w << " has different number of centroids" << std::endl;
+                continue;
+            }
+            if (all_centroids[w][c].values.size() != dim) {
+                std::cerr << "Warning: Worker " << w << " centroid " << c << " has wrong dimension" << std::endl;
+                continue;
+            }
+            
             for (int d = 0; d < dim; d++) {
-                avg[c].coordinates[d] += all_centroids[w][c].coordinates[d];
+                float val = all_centroids[w][c].values[d];
+                if (std::isfinite(val)) {
+                    avg[c].values[d] += val;
+                } else {
+                    std::cerr << "Warning: Non-finite value in worker centroid" << std::endl;
+                }
             }
         }
+        
+        // Average the values
         for (int d = 0; d < dim; d++) {
-            avg[c].coordinates[d] /= num_workers;
+            avg[c].values[d] /= num_workers;
+            
+            // Ensure the result is finite
+            if (!std::isfinite(avg[c].values[d])) {
+                std::cerr << "Warning: Non-finite average centroid value, resetting to 0" << std::endl;
+                avg[c].values[d] = 0.0f;
+            }
         }
     }
     return avg;
 }
 
-// ---- Worker Functions ----
-std::vector<float> loadWorkerData(int rank) {
-    // Path to preprocessed data (rank 0 = server, ranks 1+ = workers)
-    std::string path = "../preprocess/worker_" + std::to_string(rank-1) + "_images.bin";
-    
-    // Debug output
-    std::cout << "Worker " << rank << " loading: " << path << std::endl;
+int32_t read_int(std::ifstream& file) {
+    unsigned char bytes[4];
+    file.read(reinterpret_cast<char*>(bytes), 4);
+    if (file.gcount() != 4) {
+        throw std::runtime_error("Failed to read 4 bytes for integer");
+    }
+    return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
+}
 
+std::vector<float> loadMNISTImages(const std::string& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        throw std::runtime_error("Cannot open MNIST file: " + path);
+    }
+
+    // Read and verify magic number
+    int32_t magic = read_int(file);
+    if (magic != 2051) {
+        std::ostringstream oss;
+        oss << "Invalid MNIST image file. Expected magic 2051, got " << magic;
+        throw std::runtime_error(oss.str());
+    }
+
+    // Read number of images
+    int32_t num_images = read_int(file);
+    if (num_images != 10000) {
+        std::ostringstream oss;
+        oss << "Unexpected image count. Expected 10000, got " << num_images;
+        throw std::runtime_error(oss.str());
+    }
+
+    // Read dimensions
+    int32_t rows = read_int(file);
+    int32_t cols = read_int(file);
+    if (rows != 28 || cols != 28) {
+        throw std::runtime_error("Unexpected image dimensions");
+    }
+
+    const int image_size = rows * cols;
+    std::vector<float> images;
+    images.reserve(num_images * image_size);
+
+    // Read image data
+    std::vector<uint8_t> buffer(image_size);
+    for (int i = 0; i < num_images; ++i) {
+        file.read(reinterpret_cast<char*>(buffer.data()), image_size);
+        if (file.gcount() != image_size) {
+            throw std::runtime_error("Incomplete image data at index " + std::to_string(i));
+        }
+
+        // Convert to normalized float (0-1)
+        for (uint8_t pixel : buffer) {
+            images.push_back(pixel / 255.0f);
+        }
+    }
+
+    return images;
+}
+
+// Load MNIST labels (binary format)
+std::vector<uint8_t> loadMNISTLabels(const std::string& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open MNIST labels: " + path);
+    }
+
+    // Read and verify magic number
+    int32_t magic = read_int(file);
+    if (magic != 2049) { // Fixed: labels magic number is 2049, not 10000
+        throw std::runtime_error("Invalid MNIST labels file. Expected magic 2049, got " + std::to_string(magic));
+    }
+
+    int32_t num_labels = read_int(file);
+    std::vector<uint8_t> labels(num_labels);
+    
+    file.read(reinterpret_cast<char*>(labels.data()), num_labels);
+    if (file.gcount() != num_labels) {
+        throw std::runtime_error("Failed to read all labels");
+    }
+    return labels;
+}
+
+// Your existing test data loader
+std::vector<float> loadTestData() {
+    try {
+        return loadMNISTImages("../data/t10k-images.idx3-ubyte");
+    } catch (const std::exception& e) {
+        throw std::runtime_error(std::string("Test data loading failed: ") + e.what());
+    }
+}
+
+// Your existing worker data loader
+std::vector<float> loadWorkerData(int rank) {
+    // Workers are 1-based in MPI_COMM_WORLD
+    int worker_id = rank - 1;
+    std::string path = "../preprocess/worker_" + std::to_string(worker_id + 1) + "_images.bin";
+    
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         throw std::runtime_error("Worker " + std::to_string(rank) + 
@@ -94,67 +250,234 @@ std::vector<float> loadWorkerData(int rank) {
     }
     
     size_t size = file.tellg();
+    if (size == 0) {
+        throw std::runtime_error("Worker " + std::to_string(rank) + " file is empty: " + path);
+    }
+    
     file.seekg(0, std::ios::beg);
     
-    // Verify file size matches MNIST dimensions (28x28 = 784)
-    const size_t expected_dim = 784;
-    if (size % expected_dim != 0) {
-        throw std::runtime_error("Invalid file size for worker " + 
-                               std::to_string(rank));
+    std::vector<float> data(size / sizeof(float));
+    if (!file.read(reinterpret_cast<char*>(data.data()), size)) {
+        throw std::runtime_error("Failed to read worker data from: " + path);
     }
 
-    std::vector<uint8_t> bytes(size);
-    if (!file.read(reinterpret_cast<char*>(bytes.data()), size)) {
-        throw std::runtime_error("Worker " + std::to_string(rank) + 
-                               " failed to read: " + path);
+    if (data.empty()) {
+        std::cerr << "ERROR: Worker " << rank << " loaded EMPTY dataset!" << std::endl;
+        MPI_Abort(MPI_COMM_WORLD, 1);
     }
     
-    // Convert to normalized float
-    std::vector<float> data(bytes.size());
-    for (size_t i = 0; i < bytes.size(); i++) {
-        data[i] = bytes[i] / 255.0f;
+    // Validate data size is multiple of 784
+    if (data.size() % 784 != 0) {
+        std::cerr << "ERROR: Worker " << rank << " data size " << data.size() 
+                 << " is not multiple of 784!" << std::endl;
+        MPI_Abort(MPI_COMM_WORLD, 1);
     }
-
-    std::cout << "Worker " << rank << " loaded " 
-              << data.size()/expected_dim << " samples" << std::endl;
+    
+    std::cout << "Worker " << rank << " loaded " << data.size()/784 
+              << " samples (" << data.size() << " values)" << std::endl;
+    
     return data;
 }
 
 std::vector<Centroid> localKMeans(const std::vector<float>& data, 
                                 const std::vector<Centroid>& centroids,
                                 int dim) {
+
+    if (data.empty()) {
+        std::cerr << "ERROR: localKMeans received empty data!" << std::endl;
+        return centroids;
+    }
+    
+    if (centroids.empty()) {
+        std::cerr << "ERROR: localKMeans received empty centroids!" << std::endl;
+        return centroids;
+    }
+    
+    if (data.size() % dim != 0) {
+        std::cerr << "ERROR: Data size " << data.size() 
+                 << " not divisible by dimension " << dim << std::endl;
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+    
     std::vector<Centroid> updated = centroids;
     std::vector<int> counts(centroids.size(), 0);
     
+    // Initialize updated centroids to zero
+    for (size_t c = 0; c < updated.size(); c++) {
+        std::fill(updated[c].values.begin(), updated[c].values.end(), 0.0f);
+    }
+    
+    int num_samples = data.size() / dim;
+    std::cout << "Processing " << num_samples << " samples in localKMeans" << std::endl;
+    
+    // Assignment and accumulation step
     for (size_t i = 0; i < data.size(); i += dim) {
         float min_dist = std::numeric_limits<float>::max();
         int best_c = 0;
         
-        for (int c = 0; c < centroids.size(); c++) {
+        // Find closest centroid
+        for (size_t c = 0; c < centroids.size(); c++) {
             float dist = 0;
             for (int d = 0; d < dim; d++) {
-                float diff = data[i+d] - centroids[c].coordinates[d];
-                dist += diff * diff;
+                float diff = data[i+d] - centroids[c].values[d];
+                if (std::isfinite(diff)) {
+                    dist += diff * diff;
+                } else {
+                    std::cerr << "Warning: Non-finite difference in distance calculation" << std::endl;
+                    dist = std::numeric_limits<float>::max();
+                    break;
+                }
             }
-            if (dist < min_dist) {
+            if (dist < min_dist && std::isfinite(dist)) {
                 min_dist = dist;
                 best_c = c;
             }
         }
         
+        // Accumulate to closest centroid
         for (int d = 0; d < dim; d++) {
-            updated[best_c].coordinates[d] += data[i+d];
+            if (std::isfinite(data[i+d])) {
+                updated[best_c].values[d] += data[i+d];
+            }
         }
         counts[best_c]++;
     }
     
-    for (int c = 0; c < updated.size(); c++) {
+    // Average step
+    for (size_t c = 0; c < updated.size(); c++) {
         if (counts[c] > 0) {
             for (int d = 0; d < dim; d++) {
-                updated[c].coordinates[d] /= counts[c];
+                updated[c].values[d] /= counts[c];
+                
+                // Ensure result is finite
+                if (!std::isfinite(updated[c].values[d])) {
+                    std::cerr << "Warning: Non-finite centroid value after averaging" << std::endl;
+                    updated[c].values[d] = centroids[c].values[d]; // Keep original
+                }
+            }
+        } else {
+            // Keep original centroid if no points assigned
+            std::cout << "Warning: No points assigned to centroid " << c << std::endl;
+            updated[c] = centroids[c];
+        }
+    }
+    
+    // Print assignment counts for debugging
+    std::cout << "Centroid assignment counts: ";
+    for (size_t c = 0; c < counts.size(); c++) {
+        std::cout << counts[c] << " ";
+    }
+    std::cout << std::endl;
+    
+    return updated;
+}
+
+// Calculate loss as average distance from centroids
+double calculateLoss(const std::vector<Centroid>& global_centroids,
+                   const std::vector<std::vector<Centroid>>& worker_updates) {
+    if (global_centroids.empty() || worker_updates.empty()) {
+        return 0.0;
+    }
+    
+    double total_loss = 0.0;
+    int count = 0;
+    const int dim = global_centroids[0].values.size();
+    
+    for (const auto& worker_centroids : worker_updates) {
+        if (worker_centroids.size() != global_centroids.size()) {
+            std::cerr << "Warning: Centroid size mismatch in loss calculation" << std::endl;
+            continue;
+        }
+        
+        for (size_t c = 0; c < global_centroids.size(); c++) {
+            if (worker_centroids[c].values.size() != dim) {
+                std::cerr << "Warning: Dimension mismatch in loss calculation" << std::endl;
+                continue;
+            }
+            
+            double dist = 0.0;
+            for (int d = 0; d < dim; d++) {
+                float diff = global_centroids[c].values[d] - worker_centroids[c].values[d];
+                if (std::isfinite(diff)) {  // Check for valid numbers
+                    dist += diff * diff;
+                } else {
+                    std::cerr << "Warning: Non-finite value detected in loss calculation" << std::endl;
+                    dist = 0.0;
+                    break;
+                }
+            }
+            
+            if (std::isfinite(dist) && dist >= 0) {
+                total_loss += sqrt(dist);
+                count++;
             }
         }
     }
     
-    return updated;
+    double result = count > 0 ? total_loss / count : 0.0;
+    if (!std::isfinite(result)) {
+        std::cerr << "Warning: Loss calculation resulted in non-finite value" << std::endl;
+        return 0.0;
+    }
+    
+    return result;
+}
+
+// Check if loss has converged
+bool hasConverged(double prev_loss, double current_loss, double tolerance) {
+    return fabs(prev_loss - current_loss) < tolerance;
+}
+
+// Evaluate model accuracy on test data
+void evaluateModel(const std::vector<Centroid>& centroids, 
+                  const std::vector<float>& test_data) {
+    if (centroids.empty() || test_data.empty()) {
+        std::cout << "Cannot evaluate: empty centroids or test data" << std::endl;
+        return;
+    }
+    
+    const int dim = centroids[0].values.size();
+    int correct = 0;
+    int total = 0;
+    
+    // Note: This assumes test_data has labels in the last position
+    for (size_t i = 0; i < test_data.size(); i += dim + 1) {
+        if (i + dim >= test_data.size()) break; // Safety check
+        
+        float min_dist = std::numeric_limits<float>::max();
+        int predicted = -1;
+        
+        for (size_t c = 0; c < centroids.size(); c++) {
+            float dist = 0.0f;
+            for (int d = 0; d < dim; d++) {
+                float diff = test_data[i+d] - centroids[c].values[d];
+                dist += diff * diff;
+            }
+            if (dist < min_dist) {
+                min_dist = dist;
+                predicted = c;
+            }
+        }
+        
+        int true_label = static_cast<int>(test_data[i+dim] * 255);
+        if (predicted == true_label) {
+            correct++;
+        }
+        total++;
+    }
+    
+    if (total > 0) {
+        std::cout << "Model Accuracy: " << (100.0 * correct / total) << "% (" 
+                  << correct << "/" << total << ")" << std::endl;
+    }
+}
+
+// Send termination signal to workers
+void sendTerminationSignal(int worker_rank) {
+    int signal = -1; // Special termination signal
+    MPI_Send(&signal, 1, MPI_INT, worker_rank, 0, MPI_COMM_WORLD);
+    
+    // Send dummy dimension to complete the protocol
+    int dummy = 0;
+    MPI_Send(&dummy, 1, MPI_INT, worker_rank, 1, MPI_COMM_WORLD);
 }

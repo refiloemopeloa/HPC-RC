@@ -1,18 +1,24 @@
+// worker.cpp
 #include "../helpers/common.h"
 
 // worker.cpp
-int main(int argc, char** argv) {
-    MPI_Init(&argc, &argv);
-    
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    auto data = loadWorkerData(rank); // Now implemented
+#include "../helpers/common.h"
+
+void runWorker(int rank) {
+    auto data = loadWorkerData(rank);
+    const int dim = 784; // MNIST dimension
 
     while (true) {
+        // First, try to receive centroids normally
         auto centroids = receiveCentroids(0);
-        auto updated = localKMeans(data, centroids); // Now implemented
+        
+        // Check if this is actually a termination signal
+        // (we'll modify receiveCentroids to handle this)
+        if (centroids.empty()) {
+            break; // Termination signal received
+        }
+        
+        auto updated = localKMeans(data, centroids, dim);
         sendCentroids(updated, 0);
     }
-
-    MPI_Finalize();
 }
