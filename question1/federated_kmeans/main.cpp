@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-
+    MPI_Barrier(MPI_COMM_WORLD);
     std::cout << "Process " << rank << " of " << size << " started" << std::endl;
     kmeans(size+1);
     if (size < 2) {
