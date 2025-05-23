@@ -5,14 +5,15 @@
 #include <fstream>
 #include <algorithm>
 
-int main() {
-    // Load original MNIST
+using namespace std;
+
+
+int kmeans(int num_workers){
     auto train_images = MNISTLoader::loadImages("../data/train-images.idx3-ubyte");
     auto train_labels = MNISTLoader::loadLabels("../data/train-labels.idx1-ubyte");
     
     std::cout << "Loaded " << train_images.size()/(28*28) << " training images" << std::endl;
     
-    const int num_workers = 4;
     const int total_samples = train_images.size() / (28*28);
     const int samples_per_worker = total_samples / num_workers;
     
@@ -84,3 +85,11 @@ int main() {
     
     return 0;
 }
+
+/*int main() {
+    // Load original MNIST
+    int m;
+    cin >> m;
+    kmeans(m);
+    return 0;
+}*/

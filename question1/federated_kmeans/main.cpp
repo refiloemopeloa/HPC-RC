@@ -2,11 +2,13 @@
 #include "mpi.h"
 #include <iostream>
 #include "../helpers/common.h"  // Make sure this includes the function declarations
+#include "../preprocess/preprocess.cpp"
 
 // Forward declarations
 void runServer(int world_size);
 void runWorker(int rank);
 
+//declare the preprocess function here to create the files = world rank.
 int main(int argc, char** argv) {
     MPI_Init(&argc, &argv);
 
@@ -15,7 +17,7 @@ int main(int argc, char** argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     std::cout << "Process " << rank << " of " << size << " started" << std::endl;
-
+    kmeans(size+1);
     if (size < 2) {
         if (rank == 0) {
             std::cerr << "ERROR: Need at least 2 processes (1 server + 1 worker)!" << std::endl;

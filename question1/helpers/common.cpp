@@ -241,7 +241,7 @@ std::vector<float> loadTestData() {
 std::vector<float> loadWorkerData(int rank) {
     // Workers are 1-based in MPI_COMM_WORLD
     int worker_id = rank - 1;
-    std::string path = "../preprocess/worker_" + std::to_string(worker_id + 1) + "_images.bin";
+    std::string path = "../federated_kmeans/worker_" + std::to_string(worker_id + 1) + "_images.bin";
     
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
