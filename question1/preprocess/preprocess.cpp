@@ -8,7 +8,7 @@
 using namespace std;
 
 
-int kmeans(int num_workers){
+int preprocessData(int num_workers){
     auto train_images = MNISTLoader::loadImages("../data/train-images.idx3-ubyte");
     auto train_labels = MNISTLoader::loadLabels("../data/train-labels.idx1-ubyte");
     
@@ -21,7 +21,7 @@ int kmeans(int num_workers){
               << samples_per_worker << " samples each" << std::endl;
     
     // Create non-IID distributions
-    for (int worker = 0; worker < num_workers; worker++) {
+    for (int worker = 1; worker <= num_workers; worker++) {
         std::vector<float> worker_images;  // Changed to float for normalization
         std::vector<uint8_t> worker_labels;
         float rotation = 90.0f * worker; // 0°, 90°, 180°, 270°
@@ -29,7 +29,7 @@ int kmeans(int num_workers){
         std::cout << "Processing worker " << worker << " with rotation " << rotation << "°" << std::endl;
         
         for (int i = 0; i < samples_per_worker; i++) {
-            int idx = worker * samples_per_worker + i;
+            int idx = (worker - 1) * samples_per_worker + i;
             
             // Extract image as uint8_t first
             std::vector<uint8_t> img_uint8(28*28);
@@ -50,7 +50,7 @@ int kmeans(int num_workers){
         }
         
         // Save normalized float images
-        std::string image_filename = "worker_" + std::to_string(worker - 1) + "_images.bin";
+        std::string image_filename = "worker_" + std::to_string(worker) + "_images.bin";
         std::ofstream img_file(image_filename, std::ios::binary);
         if (!img_file) {
             std::cerr << "Error: Cannot create " << image_filename << std::endl;
@@ -61,7 +61,7 @@ int kmeans(int num_workers){
         img_file.close();
         
         // Save labels
-        std::string label_filename = "worker_" + std::to_string(worker - 1) + "_labels.bin";
+        std::string label_filename = "worker_" + std::to_string(worker) + "_labels.bin";
         std::ofstream label_file(label_filename, std::ios::binary);
         if (!label_file) {
             std::cerr << "Error: Cannot create " << label_filename << std::endl;
