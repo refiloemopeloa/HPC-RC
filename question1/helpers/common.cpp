@@ -12,7 +12,7 @@
 
 using namespace std;
 
-void sendCentroids(const std::vector<Centroid>& centroids, int dest) {
+/*void sendCentroids(const std::vector<Centroid>& centroids, int dest) {
     // First send number of centroids
     int num_centroids = centroids.size();
     MPI_Send(&num_centroids, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
@@ -144,7 +144,28 @@ std::vector<Centroid> averageCentroids(const std::vector<std::vector<Centroid>>&
         }
     }
     return avg;
+}*/
+
+void sendModel(const Logistic& model, int dest) {
+    int dim = model.weights.size();
+    MPI_Send(&dim, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
+    MPI_Send(model.weights.data(), dim, MPI_FLOAT, dest, 1, MPI_COMM_WORLD);
+    MPI_Send(&model.bias, 1, MPI_FLOAT, dest, 2, MPI_COMM_WORLD);
 }
+
+Logistic receiveModel(int from_rank) {
+    MPI_Status status;
+    int dim;
+    MPI_Recv(&dim, 1, MPI_INT, from_rank, 0, MPI_COMM_WORLD, &status);
+
+    Logistic model;
+    model.weights.resize(dim);
+    MPI_Recv(model.weights.data(), dim, MPI_FLOAT, from_rank, 1, MPI_COMM_WORLD, &status);
+    MPI_Recv(&model.bias, 1, MPI_FLOAT, from_rank, 2, MPI_COMM_WORLD, &status);
+
+    return model;
+}
+
 
 int32_t read_int(std::ifstream& file) {
     unsigned char bytes[4];
@@ -229,57 +250,95 @@ std::vector<uint8_t> loadMNISTLabels(const std::string& path) {
 }
 
 // Your existing test data loader
-std::vector<float> loadTestData() {
-    try {
-        return loadMNISTImages("../data/t10k-images.idx3-ubyte");
-    } catch (const std::exception& e) {
-        throw std::runtime_error(std::string("Test data loading failed: ") + e.what());
+std::pair<std::vector<std::vector<float>>, std::vector<uint8_t>> loadTestData() {
+    const int num_samples = 1000;
+    const int feature_dim = 784;
+
+    std::vector<std::vector<float>> features(num_samples, std::vector<float>(feature_dim));
+    std::vector<uint8_t> labels(num_samples);
+
+    std::mt19937 rng(123); // Fixed seed for consistency
+    std::uniform_real_distribution<float> feature_dist(0.0f, 1.0f);
+    std::uniform_int_distribution<int> label_dist(0, 9);
+
+    for (int i = 0; i < num_samples; ++i) {
+        for (int j = 0; j < feature_dim; ++j) {
+            features[i][j] = feature_dist(rng);
+        }
+        labels[i] = static_cast<uint8_t>(label_dist(rng));
     }
+
+    return {features, labels};
 }
 
-// Your existing worker data loader
-std::vector<float> loadWorkerData(int rank) {
-    // Workers are 1-based in MPI_COMM_WORLD
+std::pair<std::vector<std::vector<float>>, std::vector<uint8_t>> loadWorkerData(int worker_id) {
+    // File names based on worker ID
+    std::string images_file = "worker_" + std::to_string(worker_id) + "_images.bin";
+    std::string labels_file = "worker_" + std::to_string(worker_id) + "_labels.bin";
+
+    // Load labels using your existing function
+    std::vector<uint8_t> labels = loadWorkerLabels(worker_id);
+
+    // Load images:
+    std::ifstream file(images_file, std::ios::binary);
+    if (!file.is_open()) {
+        throw std::runtime_error("Cannot open images file: " + images_file);
+    }
+
+    // Read all image floats from the binary file
+    // Assuming each image is 784 floats (28x28), and total images = labels.size()
+
+    size_t num_images = labels.size();
+    size_t image_size = 784; // adjust if different
+
+    std::vector<std::vector<float>> images(num_images, std::vector<float>(image_size));
+
+    for (size_t i = 0; i < num_images; i++) {
+        file.read(reinterpret_cast<char*>(images[i].data()), image_size * sizeof(float));
+        if (!file) {
+            throw std::runtime_error("Error reading image data from " + images_file);
+        }
+    }
+
+    file.close();
+
+    return {images, labels};
+}
+
+std::vector<uint8_t> loadWorkerLabels(int rank) {
     int worker_id = rank - 1;
-    std::string path = "../federated_kmeans/worker_" + std::to_string(worker_id + 1) + "_images.bin";
-    
+    std::string path = "../federated/worker_" + std::to_string(worker_id + 1) + "_labels.bin";
+
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         throw std::runtime_error("Worker " + std::to_string(rank) + 
-                               " failed to open: " + path);
+                                 " failed to open labels: " + path);
     }
-    
+
     size_t size = file.tellg();
     if (size == 0) {
-        throw std::runtime_error("Worker " + std::to_string(rank) + " file is empty: " + path);
-    }
-    
-    file.seekg(0, std::ios::beg);
-    
-    std::vector<float> data(size / sizeof(float));
-    if (!file.read(reinterpret_cast<char*>(data.data()), size)) {
-        throw std::runtime_error("Failed to read worker data from: " + path);
+        throw std::runtime_error("Worker " + std::to_string(rank) + " labels file is empty: " + path);
     }
 
-    if (data.empty()) {
-        std::cerr << "ERROR: Worker " << rank << " loaded EMPTY dataset!" << std::endl;
+    file.seekg(0, std::ios::beg);
+
+    std::vector<uint8_t> labels(size);
+    if (!file.read(reinterpret_cast<char*>(labels.data()), size)) {
+        throw std::runtime_error("Failed to read worker labels from: " + path);
+    }
+
+    if (labels.empty()) {
+        std::cerr << "ERROR: Worker " << rank << " loaded EMPTY labels!" << std::endl;
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
-    
-    // Validate data size is multiple of 784
-    if (data.size() % 784 != 0) {
-        std::cerr << "ERROR: Worker " << rank << " data size " << data.size() 
-                 << " is not multiple of 784!" << std::endl;
-        MPI_Abort(MPI_COMM_WORLD, 1);
-    }
-    
-    std::cout << "Worker " << rank << " loaded " << data.size()/784 
-              << " samples (" << data.size() << " values)" << std::endl;
-    
-    return data;
+
+    std::cout << "Worker " << rank << " loaded " << labels.size() << " labels" << std::endl;
+
+    return labels;
 }
 
-std::vector<Centroid> localKMeans(const std::vector<float>& data, 
+
+/*std::vector<Centroid> localKMeans(const std::vector<float>& data, 
                                 const std::vector<Centroid>& centroids,
                                 int dim) {
 
@@ -470,7 +529,31 @@ void evaluateModel(const std::vector<Centroid>& centroids,
         std::cout << "Model Accuracy: " << (100.0 * correct / total) << "% (" 
                   << correct << "/" << total << ")" << std::endl;
     }
+}*/
+
+Logistic averageModels(const std::vector<Logistic>& models) {
+    if (models.empty()) return {};
+
+    int dim = models[0].weights.size();
+    Logistic avg;
+    avg.weights.resize(dim, 0.0f);
+    avg.bias = 0.0f;
+
+    for (const auto& m : models) {
+        for (int i = 0; i < dim; ++i) {
+            avg.weights[i] += m.weights[i];
+        }
+        avg.bias += m.bias;
+    }
+
+    for (int i = 0; i < dim; ++i) {
+        avg.weights[i] /= models.size();
+    }
+    avg.bias /= models.size();
+
+    return avg;
 }
+
 
 // Send termination signal to workers
 void sendTerminationSignal(int worker_rank) {
