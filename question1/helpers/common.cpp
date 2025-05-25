@@ -251,25 +251,41 @@ std::vector<uint8_t> loadMNISTLabels(const std::string& path) {
 
 // Your existing test data loader
 std::pair<std::vector<std::vector<float>>, std::vector<uint8_t>> loadTestData() {
-    const int num_samples = 1000;
-    const int feature_dim = 784;
+    std::string images_file = "../federated/test_images.bin";
+    std::string labels_file = "../federated/test_labels.bin";
 
-    std::vector<std::vector<float>> features(num_samples, std::vector<float>(feature_dim));
-    std::vector<uint8_t> labels(num_samples);
-
-    std::mt19937 rng(123); // Fixed seed for consistency
-    std::uniform_real_distribution<float> feature_dist(0.0f, 1.0f);
-    std::uniform_int_distribution<int> label_dist(0, 9);
-
-    for (int i = 0; i < num_samples; ++i) {
-        for (int j = 0; j < feature_dim; ++j) {
-            features[i][j] = feature_dist(rng);
-        }
-        labels[i] = static_cast<uint8_t>(label_dist(rng));
+    // Load labels
+    std::ifstream labels_in(labels_file, std::ios::binary);
+    if (!labels_in.is_open()) {
+        throw std::runtime_error("Cannot open test labels file: " + labels_file);
     }
 
-    return {features, labels};
+    std::vector<uint8_t> labels;
+    uint8_t label;
+    while (labels_in.read(reinterpret_cast<char*>(&label), 1)) {
+        labels.push_back(label);
+    }
+    labels_in.close();
+
+    // Load images
+    std::ifstream images_in(images_file, std::ios::binary);
+    if (!images_in.is_open()) {
+        throw std::runtime_error("Cannot open test images file: " + images_file);
+    }
+
+    const size_t image_size = 784;
+    std::vector<std::vector<float>> images(labels.size(), std::vector<float>(image_size));
+    for (size_t i = 0; i < labels.size(); ++i) {
+        images_in.read(reinterpret_cast<char*>(images[i].data()), image_size * sizeof(float));
+        if (!images_in) {
+            throw std::runtime_error("Error reading test image data");
+        }
+    }
+    images_in.close();
+
+    return {images, labels};
 }
+
 
 std::pair<std::vector<std::vector<float>>, std::vector<uint8_t>> loadWorkerData(int worker_id) {
     // File names based on worker ID
@@ -303,6 +319,25 @@ std::pair<std::vector<std::vector<float>>, std::vector<uint8_t>> loadWorkerData(
     file.close();
 
     return {images, labels};
+}
+
+void deleteWorkerData(int num_workers, int rank) {
+    if (rank == 0) {
+        std::cout << "Process 0 finished, deleting worker data" << std::endl;
+
+        for (int worker_id = 1; worker_id <= num_workers; ++worker_id) {
+            std::string image_file = "worker_" + std::to_string(worker_id) + "_images.bin";
+            std::string label_file = "worker_" + std::to_string(worker_id) + "_labels.bin";
+
+            if (std::remove(image_file.c_str()) != 0) {
+                std::cerr << "Warning: Failed to delete " << image_file << std::endl;
+            }
+
+            if (std::remove(label_file.c_str()) != 0) {
+                std::cerr << "Warning: Failed to delete " << label_file << std::endl;
+            }
+        }
+    }
 }
 
 std::vector<uint8_t> loadWorkerLabels(int rank) {

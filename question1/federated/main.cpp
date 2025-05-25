@@ -67,6 +67,7 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "Process " << rank << " finished" << std::endl;
+    deleteWorkerData(num_workers, rank);
     MPI_Finalize();
     return 0;
 }

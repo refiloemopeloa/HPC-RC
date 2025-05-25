@@ -25,12 +25,30 @@
 }*/
 
 void runWorker(int worker_id, int num_rounds) {
-    // Load images and labels from worker's dataset
+    
     std::vector<std::vector<float>> images;
     std::vector<uint8_t> labels;
     std::tie(images, labels) = loadWorkerData(worker_id);
 
     int num_samples = images.size(); 
+    
+    std::vector<int> indices(num_samples);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::shuffle(indices.begin(), indices.end(), std::mt19937{std::random_device{}()});
+
+    std::vector<std::vector<float>> shuffled_images(num_samples);
+    std::vector<uint8_t> shuffled_labels(num_samples);
+    for (int i = 0; i < num_samples; ++i) {
+        shuffled_images[i] = images[indices[i]];
+        shuffled_labels[i] = labels[indices[i]];
+    }
+
+    int split_idx = static_cast<int>(0.6 * num_samples);
+    std::vector<std::vector<float>> train_images(shuffled_images.begin(), shuffled_images.begin() + split_idx);
+    std::vector<uint8_t> train_labels(shuffled_labels.begin(), shuffled_labels.begin() + split_idx);
+
+    std::vector<std::vector<float>> val_images(shuffled_images.begin() + split_idx, shuffled_images.end());
+    std::vector<uint8_t> val_labels(shuffled_labels.begin() + split_idx, shuffled_labels.end());
 
     FederatedLogisticRegression local_model;
     
@@ -50,11 +68,11 @@ void runWorker(int worker_id, int num_rounds) {
         
         // Train locally for 3 epochs
         for (int epoch = 0; epoch < 3; epoch++) {
-            local_model.trainEpoch(images, labels, 32);
+            local_model.trainEpoch(train_images, train_labels, 32);
         }
         
         // Evaluate local accuracy on worker's data
-        float local_accuracy = local_model.evaluateAccuracy(images, labels);
+        float local_accuracy = local_model.evaluateAccuracy(val_images, val_labels);
         std::cout << "Worker " << worker_id << " round " << round 
                   << " accuracy: " << (local_accuracy * 100) << "%" << std::endl;
         
