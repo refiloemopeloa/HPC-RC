@@ -8,6 +8,7 @@
 using namespace std;
 
 
+// Better non-IID strategy in preprocess.cpp
 int preprocessData(int num_workers) {
     auto train_images = MNISTLoader::loadImages("../data/train-images.idx3-ubyte");
     auto train_labels = MNISTLoader::loadLabels("../data/train-labels.idx1-ubyte");
@@ -20,31 +21,82 @@ int preprocessData(int num_workers) {
     std::cout << "Creating " << num_workers << " worker datasets with "
               << samples_per_worker << " samples each" << std::endl;
 
-    // Create non-IID distributions
+    // Create class-based non-IID distributions instead of rotation
     for (int worker = 1; worker <= num_workers; worker++) {
         std::vector<float> worker_images;
         std::vector<uint8_t> worker_labels;
-        float rotation = 90.0f * worker;
-
+        
+        // Strategy 1: Class imbalance - each worker focuses on 2-3 classes
+        std::vector<int> preferred_classes;
+        if (worker == 1) preferred_classes = {0, 1, 2};
+        else if (worker == 2) preferred_classes = {2, 3, 4};
+        else if (worker == 3) preferred_classes = {4, 5, 6};
+        else if (worker == 4) preferred_classes = {6, 7, 8};
+        else preferred_classes = {8, 9, 0};
+        
+        // Strategy 2: Small rotation (less dramatic than 90 degrees)
+        float rotation = 10.0f * (worker - 1); // 0°, 10°, 20°, 30°, 40°
         std::cout << "Processing worker " << worker << " with rotation " << rotation << "°" << std::endl;
+        
+        int samples_collected = 0;
+        int attempts = 0;
+        const int max_attempts = total_samples * 2; // Prevent infinite loop
+        
+        while (samples_collected < samples_per_worker && attempts < max_attempts) {
+            int idx = attempts % total_samples;
+            uint8_t label = train_labels[idx];
+            
+            // 70% chance to accept preferred classes, 30% for others
+            bool accept = false;
+            if (std::find(preferred_classes.begin(), preferred_classes.end(), label) != preferred_classes.end()) {
+                accept = (rand() % 100) < 70; // 70% chance
+            } else {
+                accept = (rand() % 100) < 30; // 30% chance
+            }
+            
+            if (accept) {
+                std::vector<uint8_t> img_uint8(28 * 28);
+                std::copy(train_images.begin() + idx * 28 * 28,
+                          train_images.begin() + (idx + 1) * 28 * 28,
+                          img_uint8.begin());
 
-        for (int i = 0; i < samples_per_worker; i++) {
-            int idx = (worker - 1) * samples_per_worker + i;
+                // Apply small rotation
+                if (rotation > 0) {
+                    ImageUtils::rotate(img_uint8, rotation);
+                }
 
+                for (uint8_t pixel : img_uint8) {
+                    worker_images.push_back(pixel / 255.0f);
+                }
+
+                worker_labels.push_back(label);
+                samples_collected++;
+            }
+            attempts++;
+        }
+
+        // Fill remaining samples randomly if needed
+        while (samples_collected < samples_per_worker) {
+            int idx = rand() % total_samples;
+            
             std::vector<uint8_t> img_uint8(28 * 28);
             std::copy(train_images.begin() + idx * 28 * 28,
                       train_images.begin() + (idx + 1) * 28 * 28,
                       img_uint8.begin());
 
-            ImageUtils::rotate(img_uint8, rotation);
+            if (rotation > 0) {
+                ImageUtils::rotate(img_uint8, rotation);
+            }
 
             for (uint8_t pixel : img_uint8) {
                 worker_images.push_back(pixel / 255.0f);
             }
 
             worker_labels.push_back(train_labels[idx]);
+            samples_collected++;
         }
 
+        // Save worker data
         std::string image_filename = "worker_" + std::to_string(worker) + "_images.bin";
         std::ofstream img_file(image_filename, std::ios::binary);
         if (!img_file) {
@@ -68,12 +120,20 @@ int preprocessData(int num_workers) {
         std::cout << "Worker " << worker << ": Saved " << worker_images.size()
                   << " float values (" << worker_images.size() / 784 << " images)" << std::endl;
 
-        float min_val = *std::min_element(worker_images.begin(), worker_images.end());
-        float max_val = *std::max_element(worker_images.begin(), worker_images.end());
-        std::cout << "Worker " << worker << " data range: [" << min_val << ", " << max_val << "]" << std::endl;
+        // Print class distribution for this worker
+        std::vector<int> class_counts(10, 0);
+        for (uint8_t label : worker_labels) {
+            class_counts[label]++;
+        }
+        std::cout << "Worker " << worker << " class distribution: ";
+        for (int i = 0; i < 10; i++) {
+            std::cout << i << ":" << class_counts[i] << " ";
+        }
+        std::cout << std::endl;
     }
 
-    // === Process Test Set ===
+    // Process test set (unchanged)
+    // ... rest of test processing code ...
     std::cout << "Processing test set..." << std::endl;
 
     auto test_images_u8 = MNISTLoader::loadImages("../data/t10k-images.idx3-ubyte");
@@ -110,10 +170,7 @@ int preprocessData(int num_workers) {
     test_label_file.close();
 
     std::cout << "Saved test set: " << num_test_samples << " images and labels." << std::endl;
-
-    std::cout << "Preprocessing complete. Created " << num_workers << " worker datasets." << std::endl;
-    std::cout << "All images are normalized to [0.0, 1.0] range and saved as float values." << std::endl;
-
+    
     return 0;
 }
 

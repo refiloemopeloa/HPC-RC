@@ -7,11 +7,12 @@
 #include <cstdint>              // uint8_t
 #include <mpi.h> 
 
+
 class FederatedLogisticRegression {
 private:
-    // One-vs-all: 10 binary classifiers for digits 0-9
+    // Use softmax regression instead of one-vs-all
     std::vector<std::vector<float>> weights; // [class][feature] - 10 x 785 (784 + bias)
-    float learning_rate = 0.01f;
+    float learning_rate = 0.1f;  // Increased learning rate
     int num_classes = 10;
     int num_features = 784;
     
@@ -25,7 +26,7 @@ public:
         
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::normal_distribution<float> dist(0.0f, 0.01f); // Small random initialization
+        std::normal_distribution<float> dist(0.0f, 0.1f); // Larger initialization
         
         for (int c = 0; c < num_classes; c++) {
             for (int f = 0; f <= num_features; f++) {
@@ -33,31 +34,43 @@ public:
             }
         }
         
-        std::cout << "Logistic regression initialized with " << num_classes 
+        std::cout << "Softmax regression initialized with " << num_classes 
                   << " classes and " << num_features << " features" << std::endl;
     }
     
-    float sigmoid(float x) {
-        // Stable sigmoid to prevent overflow
-        if (x > 500) return 1.0f;
-        if (x < -500) return 0.0f;
-        return 1.0f / (1.0f + std::exp(-x));
-    }
-    
-    std::vector<float> predict_proba(const std::vector<float>& features) {
+    // Softmax activation for multi-class classification
+    std::vector<float> softmax(const std::vector<float>& logits) {
         std::vector<float> probabilities(num_classes);
         
+        // Find max for numerical stability
+        float max_logit = *std::max_element(logits.begin(), logits.end());
+        
+        float sum_exp = 0.0f;
         for (int c = 0; c < num_classes; c++) {
-            float logit = weights[c][num_features]; // bias term
-            
-            for (int f = 0; f < num_features; f++) {
-                logit += weights[c][f] * features[f];
-            }
-            
-            probabilities[c] = sigmoid(logit);
+            probabilities[c] = std::exp(logits[c] - max_logit);
+            sum_exp += probabilities[c];
+        }
+        
+        // Normalize
+        for (int c = 0; c < num_classes; c++) {
+            probabilities[c] /= sum_exp;
         }
         
         return probabilities;
+    }
+    
+    std::vector<float> predict_proba(const std::vector<float>& features) {
+        std::vector<float> logits(num_classes);
+        
+        for (int c = 0; c < num_classes; c++) {
+            logits[c] = weights[c][num_features]; // bias term
+            
+            for (int f = 0; f < num_features; f++) {
+                logits[c] += weights[c][f] * features[f];
+            }
+        }
+        
+        return softmax(logits);
     }
     
     int predict(const std::vector<float>& features) {
@@ -74,19 +87,18 @@ public:
         std::vector<std::vector<float>> gradients(num_classes, 
             std::vector<float>(num_features + 1, 0.0f));
         
-        // Compute gradients for each sample
+        // Compute gradients for each sample using softmax cross-entropy
         for (int sample = 0; sample < batch_size; sample++) {
             const auto& features = batch_features[sample];
             int true_label = batch_labels[sample];
             
-            // Get predictions for all classes
+            // Get softmax predictions
             std::vector<float> predictions = predict_proba(features);
             
-            // Update gradients for each class (one-vs-all)
+            // Compute gradients for softmax cross-entropy
             for (int c = 0; c < num_classes; c++) {
                 float y_true = (c == true_label) ? 1.0f : 0.0f;
-                float y_pred = predictions[c];
-                float error = y_pred - y_true;
+                float error = predictions[c] - y_true;
                 
                 // Gradient for bias
                 gradients[c][num_features] += error;
@@ -98,17 +110,20 @@ public:
             }
         }
         
-        // Update weights using averaged gradients
+        // Update weights with L2 regularization
+        float lambda = 0.001f; // Regularization strength
         for (int c = 0; c < num_classes; c++) {
             for (int f = 0; f <= num_features; f++) {
-                weights[c][f] -= learning_rate * gradients[c][f] / batch_size;
+                // L2 regularization (don't regularize bias)
+                float reg_term = (f < num_features) ? lambda * weights[c][f] : 0.0f;
+                weights[c][f] -= learning_rate * (gradients[c][f] / batch_size + reg_term);
             }
         }
     }
     
     void trainEpoch(const std::vector<std::vector<float>>& all_features,
                    const std::vector<uint8_t>& all_labels,
-                   int batch_size = 32) {
+                   int batch_size = 64) { // Larger batch size
         
         // Shuffle data
         std::vector<int> indices(all_features.size());
@@ -155,8 +170,8 @@ public:
             std::vector<float> probs = predict_proba(features[i]);
             int true_label = labels[i];
             
-            // Cross-entropy loss for the true class
-            float prob = std::max(probs[true_label], 1e-10f); // Prevent log(0)
+            // Cross-entropy loss
+            float prob = std::max(probs[true_label], 1e-10f);
             total_loss -= std::log(prob);
         }
         
@@ -212,7 +227,7 @@ public:
     }
     
     void printModelInfo() {
-        std::cout << "=== Logistic Regression Model Info ===" << std::endl;
+        std::cout << "=== Softmax Regression Model Info ===" << std::endl;
         std::cout << "Classes: " << num_classes << std::endl;
         std::cout << "Features: " << num_features << std::endl;
         std::cout << "Parameters: " << (num_classes * (num_features + 1)) << std::endl;
@@ -228,17 +243,4 @@ public:
                       << (weight_sum / (num_features + 1)) << std::endl;
         }
     }
-};
-
-// Simple federated training protocol for Logistic Regression
-class FederatedLogisticTraining {
-public:
-    static void runFederatedTraining(int rank, int size, int num_rounds = 15) {
-        if (rank == 0) {
-            runServer(size - 1, num_rounds);
-        } else {
-            runWorker(rank, num_rounds);
-        }
-    }
-    
 };

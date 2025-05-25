@@ -105,7 +105,7 @@ void runServer(int num_workers, int num_rounds) {
     try {
         // Implement loadTestData to return images and labels
         std::tie(test_images, test_labels) = loadTestData();
-        std::cout << "Server loaded test data: " << test_images.size() / 784 << " samples" << std::endl;
+        std::cout << "Server loaded test data: " << test_images.size() << " samples" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Warning: Could not load test data: " << e.what() << std::endl;
     }

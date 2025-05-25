@@ -249,43 +249,59 @@ std::vector<uint8_t> loadMNISTLabels(const std::string& path) {
     return labels;
 }
 
-// Your existing test data loader
 std::pair<std::vector<std::vector<float>>, std::vector<uint8_t>> loadTestData() {
     std::string images_file = "../federated/test_images.bin";
     std::string labels_file = "../federated/test_labels.bin";
 
-    // Load labels
+    // Load labels first to determine number of samples
     std::ifstream labels_in(labels_file, std::ios::binary);
     if (!labels_in.is_open()) {
         throw std::runtime_error("Cannot open test labels file: " + labels_file);
     }
 
-    std::vector<uint8_t> labels;
-    uint8_t label;
-    while (labels_in.read(reinterpret_cast<char*>(&label), 1)) {
-        labels.push_back(label);
-    }
+    // Get the number of labels by file size
+    labels_in.seekg(0, std::ios::end);
+    size_t num_samples = labels_in.tellg();
+    labels_in.seekg(0, std::ios::beg);
+
+    // Read all labels
+    std::vector<uint8_t> labels(num_samples);
+    labels_in.read(reinterpret_cast<char*>(labels.data()), num_samples);
     labels_in.close();
 
-    // Load images
+    std::cout << "Loaded " << num_samples << " labels" << std::endl;
+
+    // Load images - they are stored as a flat array of floats
     std::ifstream images_in(images_file, std::ios::binary);
     if (!images_in.is_open()) {
         throw std::runtime_error("Cannot open test images file: " + images_file);
     }
 
-    const size_t image_size = 784;
-    std::vector<std::vector<float>> images(labels.size(), std::vector<float>(image_size));
-    for (size_t i = 0; i < labels.size(); ++i) {
-        images_in.read(reinterpret_cast<char*>(images[i].data()), image_size * sizeof(float));
-        if (!images_in) {
-            throw std::runtime_error("Error reading test image data");
-        }
+    const size_t image_size = 784; // 28 * 28
+    const size_t total_floats = num_samples * image_size;
+
+    // Read all image data as a flat array first
+    std::vector<float> flat_images(total_floats);
+    images_in.read(reinterpret_cast<char*>(flat_images.data()), 
+                   total_floats * sizeof(float));
+    
+    if (!images_in) {
+        throw std::runtime_error("Error reading test image data");
     }
     images_in.close();
 
+    // Convert flat array to vector of vectors
+    std::vector<std::vector<float>> images(num_samples, std::vector<float>(image_size));
+    for (size_t i = 0; i < num_samples; ++i) {
+        for (size_t j = 0; j < image_size; ++j) {
+            images[i][j] = flat_images[i * image_size + j];
+        }
+    }
+
+    std::cout << "Loaded " << images.size() << " images, each with " << image_size << " pixels" << std::endl;
+
     return {images, labels};
 }
-
 
 std::pair<std::vector<std::vector<float>>, std::vector<uint8_t>> loadWorkerData(int worker_id) {
     // File names based on worker ID
