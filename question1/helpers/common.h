@@ -86,6 +86,7 @@ inline void checkMPIError(int rc, const std::string& context) {
 // Worker functions
 // In common.h or a suitable header
 std::pair<std::vector<std::vector<float>>, std::vector<uint8_t>> loadWorkerData(int rank);
+void deleteWorkerData(int num_workers, int rank);
 std::vector<uint8_t> loadWorkerLabels(int rank);
 /*Logistic localLogisticRegression(const std::vector<float>& data,
                                  const std::vector<uint8_t>& labels,
