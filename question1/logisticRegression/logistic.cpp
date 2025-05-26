@@ -227,11 +227,11 @@ public:
     }
     
     void printModelInfo() {
-        std::cout << "=== Softmax Regression Model Info ===" << std::endl;
+        /*std::cout << "=== Softmax Regression Model Info ===" << std::endl;
         std::cout << "Classes: " << num_classes << std::endl;
         std::cout << "Features: " << num_features << std::endl;
         std::cout << "Parameters: " << (num_classes * (num_features + 1)) << std::endl;
-        std::cout << "Learning rate: " << learning_rate << std::endl;
+        std::cout << "Learning rate: " << learning_rate << std::endl;*/
         
         // Print weight statistics
         for (int c = 0; c < num_classes; c++) {
@@ -239,8 +239,8 @@ public:
             for (int f = 0; f <= num_features; f++) {
                 weight_sum += std::abs(weights[c][f]);
             }
-            std::cout << "Class " << c << " - Avg |weight|: " 
-                      << (weight_sum / (num_features + 1)) << std::endl;
+            /*std::cout << "Class " << c << " - Avg |weight|: " 
+                      << (weight_sum / (num_features + 1)) << std::endl;*/
         }
     }
 };

@@ -8,7 +8,7 @@
 using namespace std;
 
 
-// Better non-IID strategy in preprocess.cpp
+
 int preprocessData(int num_workers) {
     auto train_images = MNISTLoader::loadImages("../data/train-images.idx3-ubyte");
     auto train_labels = MNISTLoader::loadLabels("../data/train-labels.idx1-ubyte");
@@ -21,7 +21,7 @@ int preprocessData(int num_workers) {
     std::cout << "Creating " << num_workers << " worker datasets with "
               << samples_per_worker << " samples each" << std::endl;
 
-    // Create class-based non-IID distributions instead of rotation
+    
     for (int worker = 1; worker <= num_workers; worker++) {
         std::vector<float> worker_images;
         std::vector<uint8_t> worker_labels;
@@ -34,7 +34,7 @@ int preprocessData(int num_workers) {
         else if (worker == 4) preferred_classes = {6, 7, 8};
         else preferred_classes = {8, 9, 0};
         
-        // Strategy 2: Small rotation (less dramatic than 90 degrees)
+        // Strategy 2: Small rotation
         float rotation = 10.0f * (worker - 1); // 0°, 10°, 20°, 30°, 40°
         std::cout << "Processing worker " << worker << " with rotation " << rotation << "°" << std::endl;
         
@@ -46,7 +46,7 @@ int preprocessData(int num_workers) {
             int idx = attempts % total_samples;
             uint8_t label = train_labels[idx];
             
-            // 70% chance to accept preferred classes, 30% for others
+            
             bool accept = false;
             if (std::find(preferred_classes.begin(), preferred_classes.end(), label) != preferred_classes.end()) {
                 accept = (rand() % 100) < 70; // 70% chance
@@ -75,7 +75,7 @@ int preprocessData(int num_workers) {
             attempts++;
         }
 
-        // Fill remaining samples randomly if needed
+        
         while (samples_collected < samples_per_worker) {
             int idx = rand() % total_samples;
             
@@ -132,10 +132,7 @@ int preprocessData(int num_workers) {
         std::cout << std::endl;
     }
 
-    // Process test set (unchanged)
-    // ... rest of test processing code ...
-    std::cout << "Processing test set..." << std::endl;
-
+    
     auto test_images_u8 = MNISTLoader::loadImages("../data/t10k-images.idx3-ubyte");
     auto test_labels = MNISTLoader::loadLabels("../data/t10k-labels.idx1-ubyte");
 
@@ -173,12 +170,3 @@ int preprocessData(int num_workers) {
     
     return 0;
 }
-
-
-/*int main() {
-    // Load original MNIST
-    int m;
-    cin >> m;
-    kmeans(m);
-    return 0;
-}*/

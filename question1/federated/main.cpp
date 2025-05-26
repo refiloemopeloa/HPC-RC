@@ -37,9 +37,8 @@ int main(int argc, char** argv) {
     }
 
     const int num_workers = size - 1;
-    const int num_rounds = 15;  // ✅ Add this line
+    const int num_rounds = 15;  
 
-    // Only rank 0 handles preprocessing
     if (rank == 0) {
         std::cout << "Checking if preprocessed data exists..." << std::endl;
         if (!dataFilesExist(num_workers)) {
@@ -60,10 +59,10 @@ int main(int argc, char** argv) {
 
     if (rank == 0) {
         std::cout << "Starting server with " << num_workers << " workers" << std::endl;
-        runServer(size-1, num_rounds);  // ✅ Fix call
+        runServer(size-1, num_rounds); 
     } else {
         std::cout << "Starting worker " << rank << std::endl;
-        runWorker(rank, num_rounds);  // ✅ Fix call
+        runWorker(rank, num_rounds);  
     }
 
     std::cout << "Process " << rank << " finished" << std::endl;
