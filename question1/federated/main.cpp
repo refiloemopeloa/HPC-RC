@@ -1,8 +1,10 @@
 // main.cpp
 #include "mpi.h"
 #include <iostream>
-#include "../helpers/common.h"  // Make sure this includes the function declarations
+#include "../helpers/common.h"  
 #include "../preprocess/preprocess.cpp"
+#include "../baseline/centralized.h"
+#include "../baseline/centralized.cpp"
 
 
 // Forward declarations
@@ -29,11 +31,20 @@ int main(int argc, char** argv) {
 
     if (size < 2) {
         if (rank == 0) {
-            std::cerr << "ERROR: Need at least 2 processes (1 server + 1 worker)!" << std::endl;
-            std::cerr << "Usage: mpirun -np <N> ./federated_logreg (where N >= 2)" << std::endl;
+            std::cerr << "Need at least 2 processes (1 server + 1 worker) for Federated Learning!" << std::endl;
+            std::cerr << "Usage: mpirun -np <N> ./federated (where N >= 2)" << std::endl;
+
+            std::cout << "\n Now running centralized training with original MNIST data..." << std::endl;
+            runCentralizedTraining(
+                "../data/train-images.idx3-ubyte",
+                "../data/train-labels.idx1-ubyte",
+                "../data/t10k-images.idx3-ubyte",
+                "../data/t10k-labels.idx1-ubyte",
+                0.4f  // 10% of training data for validation
+            );
         }
         MPI_Finalize();
-        return 1;
+        return 0;
     }
 
     const int num_workers = size - 1;
@@ -57,7 +68,7 @@ int main(int argc, char** argv) {
 
     std::cout << "Process " << rank << " of " << size << " started" << std::endl;
 
-    if (rank == 0) {
+    if (rank == 0 && size > 1) {
         std::cout << "Starting server with " << num_workers << " workers" << std::endl;
         runServer(size-1, num_rounds); 
     } else {
