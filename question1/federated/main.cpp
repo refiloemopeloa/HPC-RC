@@ -29,18 +29,18 @@ int main(int argc, char** argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    if (size < 2) {
+    if (size < 1) {
         if (rank == 0) {
             std::cerr << "Need at least 2 processes (1 server + 1 worker) for Federated Learning!" << std::endl;
             std::cerr << "Usage: mpirun -np <N> ./federated (where N >= 2)" << std::endl;
 
-            std::cout << "\n Now running centralized training with original MNIST data..." << std::endl;
+            std::cout << "\nNow running centralized training with original MNIST data..." << std::endl;
             runCentralizedTraining(
                 "../data/train-images.idx3-ubyte",
                 "../data/train-labels.idx1-ubyte",
                 "../data/t10k-images.idx3-ubyte",
                 "../data/t10k-labels.idx1-ubyte",
-                0.4f  // 10% of training data for validation
+                0.4f 
             );
         }
         MPI_Finalize();
