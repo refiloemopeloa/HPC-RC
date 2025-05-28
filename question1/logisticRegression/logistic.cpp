@@ -1,17 +1,17 @@
-#include <iostream>              // std::cout, std::endl
-#include <vector>                // std::vector
-#include <cmath>                 // std::exp, std::log, std::abs
-#include <random>                // std::random_device, std::mt19937, std::normal_distribution
-#include <numeric>               // std::iota
-#include <algorithm>            // std::shuffle, std::max_element
-#include <cstdint>              // uint8_t
+#include <iostream>              
+#include <vector>                
+#include <cmath>                 
+#include <random>                
+#include <numeric>               
+#include <algorithm>            
+#include <cstdint>              
 #include <mpi.h> 
 
 
 class FederatedLogisticRegression {
 private:
-    // Use softmax regression instead of one-vs-all
-    std::vector<std::vector<float>> weights; // [class][feature] - 10 x 785 (784 + bias)
+    
+    std::vector<std::vector<float>> weights;
     float learning_rate = 0.1f;  // Increased learning rate
     int num_classes = 10;
     int num_features = 784;
