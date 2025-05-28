@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <string>
 
 void runCentralizedTraining(const std::string& train_images_path, 
                            const std::string& train_labels_path,
