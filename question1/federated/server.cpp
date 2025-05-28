@@ -148,6 +148,7 @@ void runServer(int num_workers, int num_rounds) {
         if (!test_images.empty() && !test_labels.empty() && (round % 3 == 0 || round == num_rounds - 1)) {
             float accuracy = global_model.evaluateAccuracy(test_images, test_labels);
             std::cout << "Global model accuracy after round " << (round + 1) << ": " << (accuracy * 100) << "%" << std::endl;
+            std::cout << "[RESULT] Final accuracy: " << (accuracy * 100) << std::endl;
         }
     }
     

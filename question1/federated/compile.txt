@@ -1,9 +1,3 @@
-mpic++ -I./helpers server.cpp ../helpers/common.cpp -o server
-
-mpic++ -I./helpers worker.cpp ../helpers/common.cpp -o worker
-
-mpirun -np 1 ./server : -np 3 ./worker
-
 //actually use these: 
 mpic++ -g main.cpp server.cpp worker.cpp ../helpers/common.cpp -o federated
 
