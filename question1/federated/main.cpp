@@ -22,6 +22,7 @@ bool dataFilesExist(int num_workers) {
     return true;
 }
 
+// Updated main.cpp section
 int main(int argc, char** argv) {
     MPI_Init(&argc, &argv);
 
@@ -48,10 +49,16 @@ int main(int argc, char** argv) {
     }
 
     const int num_workers = size - 1;
-    const int num_rounds = 15;  
-
+    
+    // Configurable parameters
+    const int max_rounds = 20;      
+    const int min_rounds = 10;      
+    
     if (rank == 0) {
-        std::cout << "Checking if preprocessed data exists..." << std::endl;
+        std::cout << "=== FEDERATED LEARNING CONFIGURATION ===" << std::endl;
+        std::cout << "Workers: " << num_workers << std::endl;
+        
+    
         if (!dataFilesExist(num_workers)) {
             std::cout << "Preprocessing MNIST data for " << num_workers << " workers..." << std::endl;
             if (preprocessData(num_workers) != 0) {
@@ -70,10 +77,10 @@ int main(int argc, char** argv) {
 
     if (rank == 0 && size > 1) {
         std::cout << "Starting server with " << num_workers << " workers" << std::endl;
-        runServer(size-1, num_rounds); 
+        runServer(num_workers, max_rounds);  
     } else {
         std::cout << "Starting worker " << rank << std::endl;
-        runWorker(rank, num_rounds);  
+        runWorker(rank, max_rounds); 
     }
 
     std::cout << "Process " << rank << " finished" << std::endl;

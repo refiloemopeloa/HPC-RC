@@ -24,8 +24,7 @@
 
 }*/
 
-// Improved worker.cpp with better training strategy
-void runWorker(int worker_id, int num_rounds) {
+void runWorker(int worker_id, int max_rounds) {
     
     std::vector<std::vector<float>> images;
     std::vector<uint8_t> labels;
@@ -45,7 +44,6 @@ void runWorker(int worker_id, int num_rounds) {
         shuffled_labels[i] = labels[indices[i]];
     }
 
-    
     int split_idx = static_cast<int>(0.8 * num_samples);
     std::vector<std::vector<float>> train_images(shuffled_images.begin(), shuffled_images.begin() + split_idx);
     std::vector<uint8_t> train_labels(shuffled_labels.begin(), shuffled_labels.begin() + split_idx);
@@ -58,10 +56,16 @@ void runWorker(int worker_id, int num_rounds) {
     std::cout << "Worker " << worker_id << " loaded " << num_samples << " samples" << std::endl;
     std::cout << "Training on " << train_images.size() << " samples, validating on " << val_images.size() << std::endl;
     
-    for (int round = 0; round < num_rounds; round++) {
+    for (int round = 0; round < max_rounds; round++) {
         // Receive size of global weights from server
         int size;
         MPI_Recv(&size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        
+        // Check for termination signal
+        if (size == -1) {
+            std::cout << "Worker " << worker_id << " received termination signal at round " << round << std::endl;
+            break;
+        }
         
         // Receive global weights
         std::vector<float> global_weights(size);
@@ -99,4 +103,6 @@ void runWorker(int worker_id, int num_rounds) {
         // Send updated weights data
         MPI_Send(updated_weights.data(), weights_size, MPI_FLOAT, 0, 4, MPI_COMM_WORLD);
     }
+    
+    std::cout << "Worker " << worker_id << " finished training" << std::endl;
 }
