@@ -36,14 +36,15 @@ int main(int argc, char** argv) {
             std::cerr << "Usage: mpirun -np <N> ./federated (where N >= 2)" << std::endl;
 
             std::cout << "\nNow running centralized training with original MNIST data..." << std::endl;
-            runCentralizedTraining(
-                "../data/train-images.idx3-ubyte",
-                "../data/train-labels.idx1-ubyte",
-                "../data/t10k-images.idx3-ubyte",
-                "../data/t10k-labels.idx1-ubyte",
-                0.4f, 
-                10 
-            );
+            runCentralizedTrainingOnNonIID(
+    "../data/train-images.idx3-ubyte",
+    "../data/train-labels.idx1-ubyte", 
+    "../data/t10k-images.idx3-ubyte",
+    "../data/t10k-labels.idx1-ubyte",
+    5,      // num_workers to simulate
+    0.2,    // validation_ratio
+    10      // max_rounds
+);
         }
         MPI_Finalize();
         return 0;
