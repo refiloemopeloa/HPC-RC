@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#this run.sh produces csv output for performance analysis
+
 OUTPUT=federated
 LOGFILE="performance_log.csv"
 

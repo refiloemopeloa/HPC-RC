@@ -15,4 +15,4 @@ make -C federated   # Build in federated folder
 chmod +x federated/"$EXECUTABLE"
 
 # Run mpirun from federated directory so relative paths line up
-(cd federated && mpirun -np "$NUM_PROCS" "./$EXECUTABLE")
+(cd federated && mpirun --oversubscribe -np "$NUM_PROCS" "./$EXECUTABLE")
