@@ -1,0 +1,7 @@
+//actually use these: 
+mpic++ -g main.cpp server.cpp worker.cpp ../helpers/common.cpp -o federated
+
+mpirun -np 3 ./federated (-np n)
+
+mpirun --oversubscribe -np 3 ./federated (-np n)
+
